@@ -1,0 +1,1064 @@
+<title>NOVR HUD Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap">
+<style>
+:root{
+  --paper:#eef1ed; --surface:#ffffff; --ink:#15202a; --ink2:#44505c; --ink3:#66727e;
+  --rule:#cfd6d0; --rule2:#e1e6e1; --accent:#9f1d5b; --accent-ink:#ffffff; --accent-soft:#f4e0e9;
+  --now:#b35c00; --new:#17698a; --ok:#1d7447; --caution:#8f5e00; --warn:#b3312a; --code:#e4e9e4;
+  --mono:'B612 Mono',ui-monospace,'Cascadia Mono',Consolas,monospace;
+  --display:'B612','Segoe UI',system-ui,sans-serif;
+  --body:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1417; --surface:#141c20; --ink:#e2e8e4; --ink2:#a7b2ac; --ink3:#83908a;
+    --rule:#2a353b; --rule2:#1d262b; --accent:#ee7bb2; --accent-ink:#22060f; --accent-soft:#3a1929;
+    --now:#f0a24a; --new:#6cc3e8; --ok:#61d193; --caution:#f2c462; --warn:#ff7d73; --code:#1b252a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1417; --surface:#141c20; --ink:#e2e8e4; --ink2:#a7b2ac; --ink3:#83908a;
+  --rule:#2a353b; --rule2:#1d262b; --accent:#ee7bb2; --accent-ink:#22060f; --accent-soft:#3a1929;
+  --now:#f0a24a; --new:#6cc3e8; --ok:#61d193; --caution:#f2c462; --warn:#ff7d73; --code:#1b252a;
+  color-scheme:dark;
+}
+body{background:var(--paper);color:var(--ink);font:16px/1.6 var(--body);}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:32px 72px;}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.2;text-wrap:balance;margin:0;}
+h1{font-size:clamp(30px,4.2vw,44px);letter-spacing:-.01em;}
+h2{font-size:clamp(22px,2.6vw,28px);margin-bottom:6px;}
+h3{font-size:18px;margin-bottom:4px;}
+p{margin:0;}
+a{color:var(--accent);text-underline-offset:2px;}
+code,.mono{font-family:var(--mono);font-size:.86em;}
+code{background:var(--code);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere;}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);}
+.lede{font-size:18px;max-width:68ch;color:var(--ink2);}
+.stack{display:flex;flex-direction:column;gap:14px;}
+.prose{display:flex;flex-direction:column;gap:12px;max-width:72ch;}
+.prose ul,.prose ol{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;}
+header.top{display:flex;flex-direction:column;gap:14px;padding-bottom:26px;border-bottom:1px solid var(--rule);}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:12.5px;color:var(--ink3);}
+.meta b{color:var(--ink2);font-weight:700;}
+section{padding-block:40px 8px;display:flex;flex-direction:column;gap:18px;}
+section + section{border-top:1px solid var(--rule2);}
+.sec-head{display:flex;flex-direction:column;gap:6px;max-width:74ch;}
+.sec-head p{color:var(--ink2);}
+.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
+.summary > div{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;}
+.summary h3{font-size:15px;font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--ink3);font-weight:700;}
+@media (max-width:860px){.summary{grid-template-columns:1fr;}}
+
+/* ---------- viewer ---------- */
+.viewer{display:flex;flex-direction:column;gap:12px;margin:0;}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;}
+.seg{display:flex;flex-wrap:wrap;gap:6px;}
+.seg button,.btn{font:600 13.5px/1 var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:3px;padding:8px 11px;cursor:pointer;}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+.seg button:focus-visible,.btn:focus-visible,input:focus-visible,label.chk input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.mock{background:#0b1013;border:1px solid #20292e;border-radius:4px;overflow:hidden;}
+.mock svg{display:block;width:100%;height:auto;}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 22px;align-items:center;}
+.ctl{display:flex;flex-direction:column;gap:4px;font-size:13.5px;color:var(--ink2);}
+.ctl .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:12.5px;}
+.ctl input[type=range]{width:100%;accent-color:var(--accent);}
+.chks{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13.5px;color:var(--ink2);}
+label.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
+label.chk input{accent-color:var(--accent);}
+.cap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:18px;align-items:start;}
+.cap h3{font-size:17px;}
+.cap ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px;color:var(--ink);}
+.cap .note{font-size:13px;color:var(--ink3);}
+@media (max-width:860px){.cap{grid-template-columns:1fr;}}
+.hidden-sm{}
+/* HUD symbology inside mockups (fixed palette: the mock is a picture) */
+.mock text,.mock tspan{font-family:var(--mono);font-weight:700;}
+.mock .halo *{fill:none;stroke:rgba(0,14,6,.58);stroke-width:var(--hw,4);stroke-linecap:round;stroke-linejoin:round;}
+.mock .halo text,.mock .halo tspan{fill:none;stroke-width:var(--thw,3);}
+.mock .halo .solid{fill:rgba(0,14,6,.58);}
+.mock .halo .thick{stroke-width:calc(var(--hw,4) + var(--sw,1.6) * 1.3);}
+.mock .sym *{fill:none;stroke:#5cff94;stroke-width:var(--sw,1.6);stroke-linecap:round;stroke-linejoin:round;}
+.mock .sym text,.mock .sym tspan{fill:#5cff94;stroke:none;}
+.mock .sym .thick{stroke-width:calc(var(--sw,1.6) * 2.3);}
+.mock .sym .solid{fill:#5cff94;}
+.mock .sym .w{stroke:#ff5249;} .mock .sym text.w,.mock .sym tspan.w{fill:#ff5249;stroke:none;} .mock .sym .solid.w{fill:#ff5249;}
+.mock .sym .c{stroke:#ffb93a;} .mock .sym text.c,.mock .sym tspan.c{fill:#ffb93a;stroke:none;} .mock .sym .solid.c{fill:#ffb93a;}
+.mock .sym .h{stroke:#ff5d50;} .mock .sym text.h,.mock .sym tspan.h{fill:#ff5d50;stroke:none;} .mock .sym .solid.h{fill:#ff5d50;}
+.mock .sym .f{stroke:#57c9ff;} .mock .sym text.f,.mock .sym tspan.f{fill:#57c9ff;stroke:none;} .mock .sym .solid.f{fill:#57c9ff;}
+.mock .ruler *{stroke:#ffd166;fill:none;stroke-width:1.2;}
+.mock .ruler text{fill:#ffd166;stroke:none;font-weight:400;}
+.mock .grid *{stroke:rgba(255,255,255,.55);fill:none;stroke-width:1.2;stroke-dasharray:6 6;}
+.mock .grid text{fill:rgba(255,255,255,.8);stroke:none;stroke-dasharray:none;font-weight:400;}
+.blink{animation:blink 1.1s steps(1,end) infinite;}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.18}}
+@media (prefers-reduced-motion:reduce){.blink{animation:none;}}
+
+/* ---------- findings ---------- */
+.findings{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--rule);}
+.finding{display:grid;grid-template-columns:150px minmax(0,1fr);gap:8px 22px;padding:16px 0;border-bottom:1px solid var(--rule);}
+.finding .tag{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+.chip{font:700 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:5px 7px;border-radius:3px;border:1px solid currentColor;}
+.chip.hi{color:var(--warn);} .chip.md{color:var(--caution);} .chip.lo{color:var(--ink3);}
+.finding h3{font-size:17px;}
+.finding .body{display:flex;flex-direction:column;gap:6px;max-width:78ch;}
+.finding .ev{font-size:13.5px;color:var(--ink3);}
+@media (max-width:700px){.finding{grid-template-columns:1fr;}}
+
+/* ---------- figures ---------- */
+figure.fig{margin:0;display:flex;flex-direction:column;gap:10px;}
+.fig-frame{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:10px;overflow-x:auto;}
+.fig-frame svg{display:block;width:100%;height:auto;min-width:640px;}
+figcaption{font-size:14px;color:var(--ink2);max-width:80ch;}
+.fm-grid line{stroke:var(--rule);stroke-width:1;}
+.fm-axis{fill:var(--ink3);font:11px var(--mono);}
+.fm-ring{fill:none;stroke:var(--ink3);stroke-width:1.2;stroke-dasharray:5 5;}
+.fm-ringlbl{fill:var(--ink3);font:11.5px var(--body);}
+.fm-fov{fill:none;stroke:var(--ink2);stroke-width:1.2;stroke-dasharray:2 4;}
+.fm-now circle{fill:var(--now);}
+.fm-now text{fill:var(--now);font:700 12px var(--body);}
+.fm-now line,.fm-now rect,.fm-now path{stroke:var(--now);fill:none;stroke-width:1.5;}
+.fm-now .dash{stroke-dasharray:7 5;}
+.fm-new rect{fill:var(--new);fill-opacity:.14;stroke:var(--new);stroke-width:1.4;}
+.fm-new rect.win{fill-opacity:.06;stroke-width:2;}
+.fm-new rect.open{fill:none;stroke-dasharray:7 5;}
+.fm-new text{fill:var(--new);font:700 11.5px var(--body);}
+.fm-new text.sm{font:700 9.5px var(--mono);}
+svg.show-now .fm-new,svg.show-new .fm-now{display:none;}
+.dd-axis line{stroke:var(--ink3);stroke-width:1;}
+.dd-axis text{fill:var(--ink3);font:11.5px var(--mono);}
+.dd-row{fill:var(--ink);font:700 13px var(--body);}
+.dd-sub{fill:var(--ink3);font:12px var(--body);}
+.dd-bar{fill:var(--ink3);fill-opacity:.22;stroke:var(--ink3);}
+.dd-focus{fill:var(--accent);fill-opacity:.12;stroke:var(--accent);stroke-dasharray:4 3;}
+.dd-now{fill:var(--now);} .dd-now-t{fill:var(--now);font:700 12px var(--body);}
+.dd-new{fill:var(--new);} .dd-new-t{fill:var(--new);font:700 12px var(--body);}
+.dd-lbl{fill:var(--ink2);font:12px var(--body);}
+.dd-guide{stroke:var(--ink3);stroke-dasharray:3 4;stroke-width:1;}
+.dd-arrow{stroke:var(--ink2);stroke-width:1.4;fill:none;}
+
+/* ---------- tables ---------- */
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:4px;background:var(--surface);}
+table{border-collapse:collapse;width:100%;font-size:14px;}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule2);}
+th{font:700 11.5px/1.3 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);background:var(--paper);position:sticky;top:0;}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:13px;white-space:nowrap;}
+td .obj{display:block;font-family:var(--mono);font-size:12px;color:var(--ink3);}
+tr:last-child td{border-bottom:none;}
+.frame{font:700 11px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:4px 6px;border-radius:3px;white-space:nowrap;display:inline-block;}
+.fr-w{background:rgba(92,255,148,.16);color:var(--ok);} .fr-a{background:rgba(23,105,138,.14);color:var(--new);}
+.fr-h{background:rgba(159,29,91,.12);color:var(--accent);} .fr-p{background:rgba(143,94,0,.14);color:var(--caution);}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;}
+@media (max-width:860px){.two{grid-template-columns:1fr;}}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;}
+.card h3{font-size:16px;}
+.card ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px;font-size:15px;}
+.src{font-size:12.5px;color:var(--ink3);}
+.phases{display:flex;flex-direction:column;border-top:1px solid var(--rule);}
+.phase{display:grid;grid-template-columns:120px minmax(0,1fr);gap:6px 22px;padding:16px 0;border-bottom:1px solid var(--rule);}
+.phase .n{font:700 13px var(--mono);color:var(--accent);letter-spacing:.04em;}
+.phase ul{margin:6px 0 0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px;font-size:15px;}
+@media (max-width:700px){.phase{grid-template-columns:1fr;}}
+ol.q{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:8px;max-width:78ch;}
+.sources{columns:2 360px;column-gap:28px;font-size:13.5px;margin:0;padding-left:1.2em;}
+.sources li{break-inside:avoid;margin-bottom:6px;overflow-wrap:anywhere;}
+.two .sources{columns:1;}
+.callout{border-left:3px solid var(--accent);padding:4px 0 4px 14px;max-width:76ch;}
+.small{font-size:13.5px;color:var(--ink3);}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">NOVR · VR HUD design pass 0.1 · 2026-09-27</div>
+  <h1>NOVR HUD redesign</h1>
+  <p class="lede">A proposal for how Nuclear Option's HUD, helmet display, map and panels should sit in VR. Every size and position is given in degrees of your view instead of desktop pixels, so it looks the same on any monitor and any headset.</p>
+  <div class="meta"><span><b>Code base</b> upstream <code>dev</code> @ 2a0f789</span><span><b>Game</b> Nuclear Option 0.34.2</span><span><b>Measured on</b> 3840 × 2160 desktop, Rift S (Oculus runtime)</span><span><b>Status</b> proposal, nothing implemented yet</span></div>
+</header>
+
+<section id="summary" aria-labelledby="h-sum">
+  <h2 id="h-sum" class="sr">In short</h2>
+  <div class="summary">
+    <div><h3>What's wrong</h3><p>The HUD is laid out in desktop reference pixels and scaled by your <em>desktop window height</em>. At 3840 × 2160 every HUD element is drawn twice as large as at 1080p. The pitch ladder is a full ring around you. Weapons, countermeasures and damage data sit 14–39° off the nose, beyond comfortable eye movement.</p></div>
+    <div><h3>The idea</h3><p>Pin every element to one of four frames (world, aircraft, head or cockpit panel) and size it in visual angle. Flight and weapon data fit in a 26° × 23° window on the nose, readable by moving only your eyes. Text is 0.6–0.9° tall, lines are 0.12° wide, and the ladder is conformal (1:1 with the real horizon).</p></div>
+    <div><h3>Map and panels</h3><p>The minimap, damage display and messages move onto cockpit-fixed panels. The minimap and damage display sit at instrument-panel depth about 27° below the nose, beside the target camera, which already lives on a cockpit screen. The full map opens as a cockpit-fixed tablet at arm's length. It stays in the cockpit and doesn't follow your head or the HUD.</p></div>
+  </div>
+</section>
+
+<section id="viewer" aria-labelledby="h-view">
+  <div class="sec-head">
+    <h2 id="h-view">See it from the seat</h2>
+    <p>Proposed layout, drawn to the angular spec below. Pick a situation, then turn your head with the sliders. World-fixed markers stay on their targets. The HUD stays with the aircraft, the helmet data follows your head, and the panels stay in the cockpit.</p>
+  </div>
+  <figure class="viewer">
+    <div class="toolbar"><div class="seg" id="scn" role="group" aria-label="Situation"></div></div>
+    <div class="mock"><svg id="mock" data-id="m1" viewBox="0 0 1200 860" role="img" aria-label="Mockup of the proposed VR cockpit HUD for the selected situation"></svg></div>
+    <div class="controls">
+      <div class="ctl"><div class="row"><label for="yaw">Head yaw</label><span id="yawv">0°</span></div><input id="yaw" type="range" min="-100" max="100" step="1" value="0"></div>
+      <div class="ctl"><div class="row"><label for="pitch">Head pitch</label><span id="pitchv">0°</span></div><input id="pitch" type="range" min="-40" max="35" step="1" value="0"></div>
+      <div class="ctl"><div class="row"><span>View</span></div><div class="seg" id="zoom" role="group" aria-label="View width"><button type="button" data-z="80" aria-pressed="true">Headset (80°)</button><button type="button" data-z="36" aria-pressed="false">HUD close-up (36°)</button></div></div>
+      <div class="ctl" id="mapmodebox" hidden><div class="row"><span>Map anchor</span></div><div class="seg" id="mapmode" role="group" aria-label="Map anchor"><button type="button" data-m="A" aria-pressed="true">Cockpit-fixed</button><button type="button" data-m="H" aria-pressed="false">Head-locked</button></div></div>
+    </div>
+    <div class="chks" role="group" aria-label="Layers">
+      <label class="chk"><input type="checkbox" id="l-world" checked> World-fixed symbols</label>
+      <label class="chk"><input type="checkbox" id="l-hud" checked> HUD window</label>
+      <label class="chk"><input type="checkbox" id="l-hmd" checked> Helmet (head-fixed)</label>
+      <label class="chk"><input type="checkbox" id="l-panels" checked> Cockpit panels</label>
+      <label class="chk"><input type="checkbox" id="l-cockpit" checked> Cockpit structure</label>
+      <label class="chk"><input type="checkbox" id="l-grid"> Comfort rings (15°, 30°)</label>
+      <label class="chk"><input type="checkbox" id="l-rulers"> Angle rulers</label>
+      <button type="button" class="btn" id="reset">Reset head</button>
+    </div>
+    <div class="cap">
+      <div class="stack"><h3 id="scn-title">Cruise</h3><p class="note" id="scn-note"></p></div>
+      <ul id="scn-bullets"></ul>
+    </div>
+    <figcaption class="small">Rectilinear projection of an 80° × 57° slice of a headset's ~105° view. The HUD close-up narrows it to 36° so you can judge text at roughly headset sharpness. Sky, terrain, cockpit and panel contents are placeholders. Symbol sizes, positions and behaviour follow the spec.</figcaption>
+  </figure>
+</section>
+
+<section id="today" aria-labelledby="h-today">
+  <div class="sec-head">
+    <h2 id="h-today">What's wrong today</h2>
+    <p>Findings from reading NOVR's <code>dev</code> branch against the game's own HUD classes and your settings. Angles are for your 3840 × 2160 desktop. At 1080p the canvas-based ones halve. Items marked "est." still need confirming in-game.</p>
+  </div>
+  <div class="findings">
+    <div class="finding"><div class="tag"><span class="chip hi">Root cause</span></div><div class="body">
+      <h3>Scale follows the desktop window, not the headset</h3>
+      <p>NOVR switches the game's HUD canvas to world space and puts it 1,000 m ahead, but keeps the scale the game's CanvasScaler gave it: desktop height ÷ 1080. One layout pixel is 0.057° at 1080p and 0.115° at your 2160p. Your HUD text setting (40) comes out around 3.2° tall (est.). A real HUD character is about 0.5°, and VR text reads comfortably at about 0.7–1°.</p>
+      <p class="ev">Evidence: <code>VrHudProjectionHelper.GetScreenHeightScale()</code> converts with <code>1080 / Screen.height</code>. <code>UIRenderedCanvasBehavior</code> never resets <code>localScale</code>. Registry: <code>Screenmanager Resolution Height = 2160</code>, <code>HUDTextSize = 40</code>.</p>
+    </div></div>
+    <div class="finding"><div class="tag"><span class="chip hi">Pitch ladder</span></div><div class="body">
+      <h3>The ladder is a ring around you, drawn at desktop size</h3>
+      <p><code>PitchCompassBehavior</code> slices the ladder texture into 36 five-degree bands and places them, plus a mirrored copy, on a full circle through the nose, over your head and behind you. The rung positions are correct. The rung art, though, is drawn at 0.8 × the canvas scale (1.6× the desktop art at your resolution). The ladder is centred on the nose instead of the flight path marker, with no HUD field of view to stop it. On <code>dev</code> the cockpit now hides it, which helps.</p>
+    </div></div>
+    <div class="finding"><div class="tag"><span class="chip hi">Placement</span></div><div class="body">
+      <h3>Weapon, countermeasure and damage data sit outside easy eye movement</h3>
+      <p>At your resolution the weapon panel sits about 28° right and 27° up, and the countermeasures about 14° left and 27° up. The lower-left panel is about 39° left and the damage display about 32° right. Most natural eye movements are 15° or less, and beyond about 20° your head joins in (see research). Turning your head to read a number is slow in a fight.</p>
+      <p class="ev">Evidence: hard-coded offsets in <code>NOVRFlightHudBehavior</code> (TopRightPanel 330, 290 × 0.6; LowerLeftPanel −400, 80) and <code>NOVRStatusDisplayBehavior</code> (630, 145, 1000), multiplied by the canvas scale of 2.</p>
+    </div></div>
+    <div class="finding"><div class="tag"><span class="chip md">Depth</span></div><div class="body">
+      <h3>The full map, messages and spawn menus share one 88° × 57° plane, 3 m ahead</h3>
+      <p><code>GameplayUI</code> (messages, dialogue, airbase and aircraft selection, leaderboard), <code>MessageUI</code>, <code>MenuCanvas</code> and <code>MaximizedMapCanvas</code> are all placed 3 m ahead at 3 mm per layout pixel. Their corners reach 44° sideways and 28° up and down. At 3 m they sit <em>behind</em> the instrument panel (about 0.7 m away) but are drawn on top of it. Your eyes get contradictory depth cues wherever the two overlap. The minimap stays in a corner of its desktop-sized canvas (position to confirm in-game). The target camera is fine: it already renders to the aircraft's own cockpit screen.</p>
+    </div></div>
+    <div class="finding"><div class="tag"><span class="chip md">Helmet data</span></div><div class="body">
+      <h3>Head-locked data is always on and duplicates the HUD</h3>
+      <p><code>NOVRHMDBehavior</code> follows your smoothed gaze and pins speed, altitude, heading and a horizon ball about 12–22° above the middle of your view. It stays on when the HUD is right in front of you and when you look down into the cockpit. The game's own helmet display settings (side distance and angle, top height) are overridden with fixed pixel offsets.</p>
+    </div></div>
+    <div class="finding"><div class="tag"><span class="chip lo">Markers</span></div><div class="body">
+      <h3>Unit markers keep desktop pixel sizes</h3>
+      <p>Markers are placed correctly on their units, since their direction is projected properly. Their icons and labels, though, keep the canvas's pixel size (icon size 30 is about 3.4° at your resolution, est.), and every marker gets the same treatment regardless of distance or relevance.</p>
+    </div></div>
+  </div>
+  <figure class="fig">
+    <div class="seg" id="fmsel" role="group" aria-label="Show"><button type="button" data-f="both" aria-pressed="true">Both</button><button type="button" data-f="now" aria-pressed="false">Today</button><button type="button" data-f="new" aria-pressed="false">Proposed</button></div>
+    <div class="fig-frame"><svg id="fieldmap" viewBox="0 0 980 700" role="img" aria-label="Map of where HUD elements sit in your view today versus the proposal. Today they are scattered 12 to 39 degrees off the nose; proposed flight data fits in a 26 by 23 degree window and panels sit 27 degrees below the nose."></svg></div>
+    <figcaption>Where things sit in your view when looking straight ahead, in degrees from the nose. Orange dots are today's element centres at your resolution, computed from NOVR's offsets. Blue boxes are the proposal, at true size. Dashed rings mark 15°, which your eyes cover alone, and 30°, beyond which you turn your head.</figcaption>
+  </figure>
+</section>
+
+<section id="research" aria-labelledby="h-res">
+  <div class="sec-head">
+    <h2 id="h-res">What real HUDs do, and what VR changes</h2>
+    <p>Condensed from military symbology standards, flight manuals, headset specs and VR design guides. Sources are listed at the end.</p>
+  </div>
+  <div class="card"><h3>What real HUDs and helmet displays do</h3><ul>
+    <li><b>Everything is collimated.</b> Symbology is a virtual image at optical infinity, so the ladder is conformal: 5° of rung spacing covers 5° of sky. Placement tolerance is ±1.7 mrad on axis.</li>
+    <li><b>The window is 20–30° wide.</b> Total field of view is 20° for the F/A-18 and F-15C, 25° for the F-16C (20° × 13.5° from one eye position), 30° × 22° for the Rafale and 30° × 25° for the Typhoon. Symbols that reach the edge stop there and change form. The Hornet's velocity vector stops 8° from centre and flashes.</li>
+    <li><b>One layout across aircraft.</b> The heading tape (compressed, not 1:1) is at the top, airspeed on the left and altitude on the right, with a data block under each. The left block holds Mach, G, peak G and AoA. The right holds radar altitude, vertical velocity and range. Weapon, count and master arm sit low, the launch-zone scale sits on the right, and a bank scale runs along the bottom.</li>
+    <li><b>Ladder conventions.</b> Rungs come every 5°, solid above the horizon and dashed below, with numbers at the rung ends that roll with the ladder. Negative rungs bend toward the horizon at half the angle (Hornet, F-16C/D), which tested best for unusual-attitude recovery. There's a long horizon line and a dashed ghost horizon once the real one leaves view. Compression is used only in a dedicated unusual-attitude mode.</li>
+    <li><b>Sizes.</b> The handbook minimum for HUD characters is 24 arcminutes (0.40°). Lines are about 1 mrad (0.057°) wide, and a stroke is 0.12–0.2 × the character height. Weapon cues run 8–56 mrad (0.5–3.2°). No public source gives the flight path marker's size, but about 1° fits the cues around it.</li>
+    <li><b>Helmet displays use three frames.</b> Head-fixed data (G, speed, altitude, heading, target range) sits around an aiming cross, target boxes and steerpoints are world-stabilized, and a virtual HUD is aircraft-fixed. JHMCS blanks when you look through the HUD, and below the canopy rail it keeps only target symbols. In a NASA study, pilots misjudged pitch three times as often with a conformal horizon in the helmet and preferred a body-axis attitude display.</li>
+    <li><b>Colour and clutter.</b> HUDs use P43 green (about 544 nm). Colour helmets show adversaries red and friendlies blue. Red means warning and amber means caution. The Hornet's declutter levels first strip Mach, G and the box outlines, then the heading scale. FAA guidance keeps display density under 50%, ideally 25% or less.</li>
+    <li><b>Head-down displays</b> carry the map, radar, radar warning and targeting-pod video, 25–35° below the eye line. The F-35 uses a 20 × 8 in panoramic screen split into portals. A head-up to head-down glance costs about 0.7 s.</li>
+  </ul>
+  <p class="small">Why VR text must be bigger than a real HUD's: the 0.40° minimum assumes about 1 arcminute of visual acuity. A headset pixel is 2.4 arcminutes (Quest 3) to 4.4 (Index), so the same legibility needs text about 1.5–2× larger.</p></div>
+  <div class="two">
+    <div class="card"><h3>What VR changes</h3><ul>
+      <li><b>Sharpness is a third to a half of normal vision.</b> Quest 3 resolves about 25 pixels per degree, Quest Pro 22, Quest 2 and Pico 4 about 20, and Index about 13–14. Bigscreen Beyond reaches 32 and Varjo Aero 35 at its peak. 20/20 vision is about 60. These are lens-centre best cases, and resampling and reprojection lose another 25–50%.</li>
+      <li><b>Text needs at least 10 pixels of height.</b> That means a cap height of at least 0.40° on Quest 3, 0.50° on Quest 2 and 0.74° on Index. Guidance converges on at least 0.7° em for numbers and at least 1.0° em for reading text on a 20-PPD headset.</li>
+      <li><b>Lines need at least 2 pixels</b>: about 0.1° on Quest and 0.15° on Index. A real HUD's 1-milliradian (0.057°) line is too thin and shimmers.</li>
+      <li><b>Eyes cover about 15°, then the head joins in.</b> Most natural eye movements are 15° or less, and beyond about 20° the head moves too. Comfortable head yaw is about ±30°, pitch about 20° up and 12° down. Resting gaze sits 10–20° below the horizon.</li>
+      <li><b>Distance.</b> Quest 2's lenses focus at about 1.3 m. Oculus recommends 0.75–3.5 m for interface. Stereo depth fades by 10–20 m, and at 100 m the disparity is under a pixel, so 1,000 m is effectively infinity.</li>
+      <li><b>Anchoring.</b> Microsoft, Meta and Apple all warn against rigidly head-locked interface. A cockpit is a stable rest frame. Head-locked content drawn into the eye buffer judders under Meta's spacewarp, so it needs smoothing or a compositor layer.</li>
+      <li><b>Depth conflicts.</b> Symbology at infinity painted over nearer geometry contradicts occlusion. The fixes in use are to clip symbology to the combiner (a DCS mod), blank the helmet display over the HUD and cockpit (JHMCS), and put panels at their surface's depth.</li>
+    </ul></div>
+    <div class="card"><h3>What Nuclear Option already does</h3><ul>
+      <li><b>The game treats its HUD as helmet symbology.</b> Since 0.29.1, speed and attitude are view-locked. Extra helmet elements appear when you look away from the nose, controlled by <i>Distance to hide HMD</i> (yours is 0.33). The proposal keeps that behaviour but measures it as an angle.</li>
+      <li><b>Look-to-select.</b> A designator diamond at the centre of view selects the unit under it. Version 0.34 added a chevron on the closest aircraft and names the unit nearest the cursor.</li>
+      <li><b>Weapon cues already sit where real ones do.</b> The range scale (MAX, NEZ, MIN and a TGT arrow) is on the right, with SHOOT or X plus a reason. Bombing uses CCRP with the nose above the horizon and CCIP below it. Landing uses a glideslope line and an AoA indexer.</li>
+      <li><b>Threats</b> show as a flashing missile icon, a threat list above the minimap and a grey, yellow or red radar-detection bar. A yellow dotted notch line appears on both the HUD and the map.</li>
+      <li><b>Desktop players already report</b> target clutter near the ground and a weak weapon and countermeasure readout (they ask for bottom centre). The HUD is hard to read near the sun and clouds, and there are no colour options.</li>
+      <li><b>NOVR players</b> praise that the UI renders at infinity and like look-to-target. They report chat width (#41), the cursor on a different plane from buttons (#40), a map behind the player on Pimax, and a dim HUD. The dann1kid fork (0.4.6–0.4.8) already tried a narrow ladder, data near the nose and a smaller off-boresight ring, the same direction as this proposal.</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>How other VR flight games handle it</h3>
+    <div class="tbl" style="border:none"><table>
+      <thead><tr><th>Game</th><th>Approach</th><th>What players say</th></tr></thead>
+      <tbody>
+        <tr><td>VTOL VR</td><td>Physical HUD. The helmet visor shows heading, speed and altitude only when you aren't looking at the HUD. Touch MFDs carry the map</td><td>Held up by other communities as the model to copy</td></tr>
+        <tr><td>DCS World</td><td>Collimated HUD on the combiner. The JHMCS draws in the right eye only and blanks over the HUD and cockpit. Unit labels thin out with range</td><td>JHMCS double vision, clumping labels. VR pilots prefer dots. The F10 map breaks immersion, so many use OpenKneeboard</td></tr>
+        <tr><td>Ace Combat 7 VR</td><td>The radar moves from the screen corner onto a cockpit MFD</td><td>Busy cockpits are harder to read mid-fight</td></tr>
+        <tr><td>MSFS 2020/2024</td><td>Floating 2D windows plus an in-cockpit tablet</td><td>Windows spawn on and follow your head. The tablet is "huge and very easy to read"</td></tr>
+        <tr><td>Star Wars: Squadrons</td><td>Cockpit instruments carry critical data. Selectable HUD modes</td><td>Edge indicators slide away when you look at them</td></tr>
+        <tr><td>Elite Dangerous</td><td>Holographic panels fixed in the cockpit, opened by looking at them</td><td>Panels pop open while you look around</td></tr>
+        <tr><td>War Thunder</td><td>The flat HUD stays at its screen positions</td><td>You turn your head to find the minimap and status. HUDs are hard to read</td></tr>
+        <tr><td>Project Wingman</td><td>A 2D overlay that ignores the cockpit</td><td>"HUD bleeds through the cockpit", cross-eyed, headaches</td></tr>
+        <tr><td>Falcon BMS</td><td>HUD drawn "just far enough" instead of at infinity (fixed in 4.37.1, regressed in 4.38)</td><td>Visible on high-resolution headsets. The kneeboard is unusable in VR</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small">The best-received titles move occasional information into the cockpit and keep projected symbology compact and collimated. The worst port the flat HUD unchanged.</p>
+  </div>
+</section>
+
+<section id="design" aria-labelledby="h-design">
+  <div class="sec-head">
+    <h2 id="h-design">The proposal</h2>
+    <p>Six rules, four frames and one window. The mockups above follow these rules.</p>
+  </div>
+  <div class="two">
+    <div class="card"><h3>Rules</h3><ul>
+      <li><b>Degrees, not pixels.</b> Every size and offset is a visual angle, converted with <span class="mono">size = 2·d·tan(θ/2)</span> at the element's distance <span class="mono">d</span>. Nothing reads <code>Screen.height</code>.</li>
+      <li><b>Eyes before head.</b> Anything you need in a fight sits within about 13° of the nose. Occasional information sits 20–30° off the nose, where a glance reaches it. Nothing important needs a head turn.</li>
+      <li><b>Conformal means 1:1.</b> The flight path marker, ladder, horizon, target boxes, pippers, runway cues and markers point at the real thing they represent.</li>
+      <li><b>Infinity for symbols, panel depth for panels.</b> Symbology renders at 1,000 m (optical infinity) and is hidden by cockpit structure. Panels sit at the instrument panel's depth or nearer, never behind geometry they are drawn over.</li>
+      <li><b>A legibility floor.</b> Text is at least 0.6° tall and lines at least 0.12° wide, with a dark halo so green reads against bright cloud.</li>
+      <li><b>Declutter by relevance.</b> The selected target, threats, the objective and nearby friendlies get labels. Everything else is a small icon, dimmer with distance.</li>
+    </ul></div>
+    <div class="card"><h3>Four frames</h3>
+      <div class="tbl" style="border:none"><table>
+        <thead><tr><th>Frame</th><th>Moves with</th><th>Holds</th></tr></thead>
+        <tbody>
+          <tr><td><span class="frame fr-w">World</span></td><td>The outside world</td><td>Flight path marker, pitch ladder, horizon, target boxes, gun and bomb pippers, markers, objective, runway, notch line</td></tr>
+          <tr><td><span class="frame fr-a">Aircraft</span></td><td>The airframe (the HUD window)</td><td>Speed, altitude, heading tape, Mach, G, AoA, weapons, countermeasures, launch zone, cues</td></tr>
+          <tr><td><span class="frame fr-h">Head</span></td><td>Your head (helmet display)</td><td>Designator ring, compact flight data, target and threat arrows. Only when you look away from the HUD</td></tr>
+          <tr><td><span class="frame fr-p">Panel</span></td><td>The cockpit</td><td>Minimap, target camera, damage, comms, full map (on demand)</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <figure class="fig">
+    <div class="fig-frame"><svg viewBox="0 0 980 360" role="img" aria-label="Depth diagram: today the map and target camera sit on a plane at 3 metres, behind the instrument panel yet drawn in front of it. The proposal moves them onto the panel face at about 0.7 metres and keeps HUD symbology at 1 kilometre, hidden behind cockpit structure.">
+      <g class="dd-axis">
+        <line x1="90" y1="320" x2="930" y2="320"/>
+        <line x1="90" y1="315" x2="90" y2="325"/><text x="90" y="340" text-anchor="middle">0.3 m</text>
+        <line x1="139" y1="315" x2="139" y2="325"/><text x="139" y="340" text-anchor="middle">0.5</text>
+        <line x1="171" y1="315" x2="171" y2="325"/><text x="171" y="340" text-anchor="middle">0.7</text>
+        <line x1="206" y1="315" x2="206" y2="325"/><text x="206" y="340" text-anchor="middle">1</text>
+        <line x1="272" y1="315" x2="272" y2="325"/><text x="272" y="340" text-anchor="middle">2</text>
+        <line x1="311" y1="315" x2="311" y2="325"/><text x="311" y="340" text-anchor="middle">3</text>
+        <line x1="427" y1="315" x2="427" y2="325"/><text x="427" y="340" text-anchor="middle">10</text>
+        <line x1="648" y1="315" x2="648" y2="325"/><text x="648" y="340" text-anchor="middle">100</text>
+        <line x1="869" y1="315" x2="869" y2="325"/><text x="869" y="340" text-anchor="middle">1 km</text>
+        <text x="930" y="340" text-anchor="middle">∞</text>
+        <text x="510" y="357" text-anchor="middle">distance from your eyes (log scale)</text>
+      </g>
+      <line class="dd-guide" x1="171" y1="40" x2="171" y2="316"/>
+      <line class="dd-guide" x1="184" y1="40" x2="184" y2="316"/>
+      <text class="dd-row" x="8" y="58">Cockpit</text>
+      <rect class="dd-bar" x="100" y="46" width="56" height="16" rx="2"/><text class="dd-lbl" x="128" y="80" text-anchor="middle">canopy frame</text>
+      <rect class="dd-bar" x="164" y="46" width="14" height="16" rx="2"/><text class="dd-lbl" x="171" y="96" text-anchor="middle">instrument panel</text>
+      <rect class="dd-bar" x="178" y="46" width="12" height="16" rx="2"/><text class="dd-lbl" x="198" y="80" text-anchor="start">glareshield, HUD glass</text>
+      <rect class="dd-focus" x="226" y="42" width="10" height="24" rx="2"/><text class="dd-lbl" x="231" y="36" text-anchor="middle">lens focus ≈1.3 m (Quest 2)</text>
+      <text class="dd-row" x="8" y="152">Today</text>
+      <circle class="dd-now" cx="311" cy="146" r="7"/><text class="dd-now-t" x="323" y="142">full map, messages, spawn menus</text><text class="dd-sub" x="323" y="158">3 m: behind the panel, but drawn in front of it</text>
+      <circle class="dd-now" cx="869" cy="136" r="7"/><text class="dd-now-t" x="857" y="120" text-anchor="end">HUD, ladder, markers</text>
+      <circle class="dd-now" cx="869" cy="168" r="7"/><text class="dd-now-t" x="857" y="184" text-anchor="end">helmet data, always on</text>
+      <text class="dd-row" x="8" y="252">Proposed</text>
+      <circle class="dd-new" cx="167" cy="246" r="7"/><text class="dd-new-t" x="155" y="238" text-anchor="end">map tablet</text><text class="dd-sub" x="155" y="254" text-anchor="end">≈0.7 m, in front of the panel</text>
+      <circle class="dd-new" cx="174" cy="274" r="7"/><text class="dd-new-t" x="186" y="278">minimap, damage, target camera (already a cockpit screen) on the panel face</text>
+      <circle class="dd-new" cx="869" cy="228" r="7"/><text class="dd-new-t" x="857" y="222" text-anchor="end">HUD, ladder, markers, comms</text><text class="dd-sub" x="857" y="238" text-anchor="end">hidden by cockpit structure</text>
+      <circle class="dd-new" cx="869" cy="268" r="7"/><text class="dd-new-t" x="857" y="284" text-anchor="end">helmet data, off-nose only</text>
+      <path class="dd-arrow" d="M305 160 C 280 205, 215 250, 184 268" marker-end="url(#dd-ah)"/>
+      <text class="dd-lbl" x="250" y="206" text-anchor="middle">moves onto the panel face</text>
+      <defs><marker id="dd-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor" style="fill:var(--ink2)"/></marker></defs>
+    </svg></div>
+    <figcaption>Where each layer sits in depth. Stereo vision reads depth from where your two eyes converge. A layer that is geometrically behind the instrument panel but painted over it (today's 3 m plane) sends conflicting signals. The fix is to put panels on the panel face and keep collimated symbology at infinity, where cockpit structure can hide it just as the real airframe hides the outside world.</figcaption>
+  </figure>
+</section>
+
+<section id="window" aria-labelledby="h-win">
+  <div class="sec-head">
+    <h2 id="h-win">The HUD window, dimensioned</h2>
+    <p>Air-to-air layout at the spec's exact angles. Yellow rulers are in degrees from the nose. The window is 26° wide (−13° to +13°) and 23° tall (−12° to +11°), which is about a real wide-angle HUD's total field of view.</p>
+  </div>
+  <figure class="fig">
+    <div class="mock"><svg id="specsheet" data-id="m2" viewBox="0 0 1200 860" role="img" aria-label="Dimensioned drawing of the proposed HUD window in air-to-air mode with angle rulers"></svg></div>
+    <figcaption>Layout bands, top to bottom: heading tape and readout (+8° to +10.5°); ladder and flight path marker in the middle; speed box left and altitude box right at +0.8°; Mach, G, AoA, throttle and fuel in a left column; radar altitude and climb rate on the right; launch zone scale low right; mode, countermeasures and weapons on the bottom row at −10.6°.</figcaption>
+  </figure>
+  <div class="two">
+    <div class="card"><h3>Type, line and symbol scale</h3>
+      <div class="tbl" style="border:none"><table id="typetbl">
+        <thead><tr><th>Token</th><th class="num">Angle</th><th class="num">Quest 3</th><th class="num">Quest 2</th><th class="num">Rift S, Index</th><th>Used for</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="small" id="typenote">Pixel heights assume centre sharpness of about 25 (Quest 3), 20 (Quest 2) and 14 (Rift S and Index; the Rift S figure is estimated from 1,280 px across roughly 88°) pixels per degree. Legible text needs about 10 pixels of height, which every token clears on Quest. On your Rift S, T3 lands at 8.4 px and a stroke at 1.7 px. So low-sharpness headsets get a <b>1.2× text scale</b> and 0.15° strokes by default. A <b>HUD text scale</b> setting (0.8–1.5×) covers other headsets and personal preference. Real HUDs use about 0.40° characters and 0.057° lines, which is too fine for today's headsets.</p>
+    </div>
+    <div class="card"><h3>Colour and declutter</h3><ul>
+      <li><b>HUD colour</b> comes from the game's setting (yours is pure green). A 0.05° dark halo sits behind every stroke and glyph so symbology survives bright cloud and snow. Real HUDs can't do this, but VR can.</li>
+      <li><b>Meaning colours only</b>: amber for caution (low countermeasures, fuel, damage), red for warnings (missile inbound, pull up), faction blue and red for markers. The HUD window never shows more than three hues at once.</li>
+      <li><b>Labels</b> go only on the selected target, active threats, the objective and friendlies within 5 km, with at most 6 at once. Other markers are icons, drawn 0.75° and at 50% opacity beyond 40 km.</li>
+      <li><b>Declutter key</b> cycles <span class="mono">FULL → NO GAUGES → FIGHT</span>, modelled on the Hornet's NORM, REJ 1 and REJ 2. FIGHT keeps the flight path marker, ladder, target, weapon, launch zone and warnings. Invalid data is flagged, never silently hidden, and the window aims to stay under 25% ink.</li>
+      <li><b>Stale contacts</b> (the game's "?" last-known positions) are drawn dashed at half opacity, so they can't be mistaken for live tracks.</li>
+      <li><b>Landing config</b> (gear down) hides weapons, countermeasures and the launch zone and shows the AoA bracket and gear state.</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="panels" aria-labelledby="h-panels">
+  <div class="sec-head">
+    <h2 id="h-panels">The map and panels</h2>
+    <p>You asked whether the map should move with the HUD. The recommendation is no. The map belongs to the cockpit, like a real MFD or a kneeboard.</p>
+  </div>
+  <div class="two">
+    <div class="card"><h3>Why cockpit-fixed</h3><ul>
+      <li><b>Not with the HUD's world layer.</b> Conformal symbology moves with the outside world at 500 kt. A map pinned there would slide across the canopy as you turn.</li>
+      <li><b>Not head-locked.</b> A 50° panel glued to your view hides the outside world wherever you look. Microsoft, Meta and Apple all flag rigidly head-locked content as a discomfort trigger. MSFS players complain about exactly this with its floating windows. Try the <i>Head-locked</i> option in the Map scenario and turn your head.</li>
+      <li><b>Cockpit-fixed.</b> The cockpit is your rest frame in VR. Content fixed to it feels solid, you can glance away and back, and a mouse or controller ray hits a stable target.</li>
+    </ul></div>
+    <div class="card"><h3>Where each panel goes</h3><ul>
+      <li><b>Minimap</b>: left MFD, 18° left and 27.5° down, 16° × 15° on the panel face at about 0.7 m. That's the size of a real 8-inch MFD. It keeps the existing opacity setting.</li>
+      <li><b>Target camera</b>: it already renders onto the aircraft's own cockpit screen, so it is at the right depth today. Keep it there (the mockup shows it on the right MFD). Some cockpit screens are small, so holding a key can show an enlarged 30° repeater beside the HUD (+24°, −6°).</li>
+      <li><b>Damage and systems</b>: centre panel, 30.5° down. A new failure also flashes a short amber caution in the HUD at −7°.</li>
+      <li><b>Comms</b> (kill feed, messages, chat): a strip left of the HUD at eye level (−26°, +6°), rendered at infinity in the canopy glass. Lines fade after 10 s, so it's usually empty.</li>
+      <li><b>Full map</b>: opens as a 50° × 30° tablet 12° below the nose at about 0.7 m, with its lower edge tilted toward you so it sits just in front of the instrument panel face. That is at the near edge of comfortable VR viewing (Meta suggests 0.75 m or more). It's acceptable for a view you open briefly. Farther away it would sit behind the panel and need the cockpit dimmed. The header repeats speed, heading, altitude and any missile warning, and the top of the HUD stays visible above it.</li>
+      <li><b>Recentring</b> is measured against the cockpit's forward direction, never the headset's playspace. A playspace-relative map rendered behind a Pimax user.</li>
+      <li><b>One cursor surface.</b> Every interactive panel takes mouse and controller rays on its own plane. Today the cursor can sit on a different plane from a button (#40).</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="spec" aria-labelledby="h-spec">
+  <div class="sec-head">
+    <h2 id="h-spec">Element by element</h2>
+    <p>Each game element, the frame it lives in, where it goes and how big it is. Angles are azimuth, elevation from the nose, with positive values meaning right and up.</p>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Element</th><th>Frame</th><th>Position</th><th>Size</th><th>Change from today</th></tr></thead>
+    <tbody>
+      <tr><td>Flight path marker<span class="obj">FlightHud.velocityVector</span></td><td><span class="frame fr-w">World</span></td><td>On the velocity vector. Stops and flashes at the window edge</td><td>1.1° ring, 1.3° wings, 0.65° fin</td><td>Size fixed in degrees (today it scales with the canvas)</td></tr>
+      <tr><td>Waterline<span class="obj">FlightHud.waterline</span></td><td><span class="frame fr-a">Aircraft</span></td><td>0°, 0°</td><td>4.4° wide</td><td>Kept</td></tr>
+      <tr><td>Pitch ladder, horizon<span class="obj">FlightHud.pitchCompass</span></td><td><span class="frame fr-w">World</span></td><td>Centred on the flight path marker. 5° rungs within ±17° of it, clipped to the window</td><td>3.2° rungs, 1.6° centre gap each side, 0.55° end ticks, horizon ±12°. Negative rungs dashed and bent toward the horizon by half the pitch angle</td><td>Drawn as lines instead of a sliced texture. No ring overhead or behind</td></tr>
+      <tr><td>Heading tape<span class="obj">FlightHud.compass, Bearing</span></td><td><span class="frame fr-a">Aircraft</span></td><td>Tape at +8°, spanning ±10° of view. It shows ±20° of heading (compressed 2:1, as real tapes are). Readout at +9.55°</td><td>Ticks 0.5 and 0.9°, labels 0.6°, readout 0.7° in a 3.6° box</td><td>Moved from head-locked (0°, +22°) into the window. Steering caret to the objective</td></tr>
+      <tr><td>Airspeed<span class="obj">SpeedGauge</span></td><td><span class="frame fr-a">Aircraft</span></td><td>−9.8°, +0.8°</td><td>4.4 × 1.6° box, 0.9° digits</td><td>Was head-locked at −12°, +17°</td></tr>
+      <tr><td>Altitude, radar altitude, climb<span class="obj">Altitude, Climbrate</span></td><td><span class="frame fr-a">Aircraft</span></td><td>+9.6°, +0.8°. R-alt and VV right-aligned below</td><td>5.4 × 1.6° box, 0.9° digits, 0.7° below</td><td>Was head-locked at +12°, +17°</td></tr>
+      <tr><td>Mach, G, AoA, throttle, fuel<span class="obj">MachIndicator, GIndicators, AoADisplay, ThrottleGauge, FuelGauge</span></td><td><span class="frame fr-a">Aircraft</span></td><td>Left column at −12.4°, rows from −1.2° down every 1.35°</td><td>0.7° (throttle and fuel 0.6°)</td><td>Round gauges become numbers. Low fuel turns amber</td></tr>
+      <tr><td>Weapons, master arm<span class="obj">WeaponStatus (topRightPanel)</span></td><td><span class="frame fr-a">Aircraft</span></td><td>Bottom row, right-aligned at +12.4°, −10.6°</td><td>0.7°</td><td>Was about +28°, +27°</td></tr>
+      <tr><td>Countermeasures, master mode<span class="obj">countermeasureBackground, HUDOptions.currentMode</span></td><td><span class="frame fr-a">Aircraft</span></td><td>Bottom row, left</td><td>0.6–0.7°</td><td>Was about −14°, +27°. Amber when low</td></tr>
+      <tr><td>Launch zone<span class="obj">HUDMissileState</span></td><td><span class="frame fr-a">Aircraft</span></td><td>Vertical scale at +11.9°, −9° to −3.8° (0–30 km)</td><td>Rmax and Rmin ticks, bold no-escape segment, range caret with range and closure</td><td>Anchored to the window instead of the canvas</td></tr>
+      <tr><td>Shoot, in-range and release cues<span class="obj">HUDMissileState.hint etc.</span></td><td><span class="frame fr-a">Aircraft</span></td><td>0°, −6°</td><td>0.9° text in a box</td><td>Placed under the flight path marker</td></tr>
+      <tr><td>Target box, unit markers<span class="obj">CombatHUD.targetDesignator, HUDUnitMarker</span></td><td><span class="frame fr-w">World</span></td><td>On the unit. Hidden behind cockpit structure</td><td>Icon 1.0° (0.75° at 50% beyond 40 km). Target box 2.2°. Labels 0.6°, at most 6</td><td>Fixed angular size. Labels by relevance</td></tr>
+      <tr><td>Gun lead<span class="obj">HUDBoresightState</span></td><td><span class="frame fr-w">World</span></td><td>Pipper on the lead point, line to the target, gun cross at −1.5°</td><td>Pipper 1.8° with centre dot</td><td>Clipped to the window</td></tr>
+      <tr><td>CCIP, CCRP<span class="obj">HUDBombingState</span></td><td><span class="frame fr-w">World</span></td><td>Pipper on the impact point, fall line from the flight path marker</td><td>Pipper 1.6°, release countdown 0.6°</td><td>Clipped to the window</td></tr>
+      <tr><td>Airbase, runway, glideslope<span class="obj">AirbaseOverlay</span></td><td><span class="frame fr-w">World</span></td><td>On the runway. −3° glideslope reference</td><td>Outline strokes 0.12°, label 0.6°</td><td>Label size fixed</td></tr>
+      <tr><td>Objective<span class="obj">ObjectiveOverlay</span></td><td><span class="frame fr-w">World</span></td><td>On the objective. Heading-tape caret when ahead</td><td>1.2° diamond, 0.6° label</td><td>At most 2 on the HUD</td></tr>
+      <tr><td>Missile warning<span class="obj">ThreatList, MissileWarning</span></td><td><span class="frame fr-a">Aircraft</span> <span class="frame fr-h">Head</span></td><td>"MISSILE" at 0°, +4.6° (HUD) and +6.5° (helmet). Arrow on a 7° (HUD) or 12° (helmet) ring</td><td>1.0° text, red, flashing</td><td>Direction arrow instead of a screen-edge pin</td></tr>
+      <tr><td>Notch line<span class="obj">ThreatItem.notchIndicator</span></td><td><span class="frame fr-w">World</span></td><td>Vertical at the beam bearing, −6° to +8°</td><td>Dashed, label 0.6°</td><td>Limited from full height (±64°) to 14°</td></tr>
+      <tr><td>Designator ring<span class="obj">CombatHUD.targetDesignator</span></td><td><span class="frame fr-h">Head</span></td><td>Centre of gaze (keeps the 1.2× overshoot)</td><td>1.8° ring with ticks</td><td>Shown only with the helmet layer</td></tr>
+      <tr><td>Helmet data strip<span class="obj">HeadMountedDisplay apps</span></td><td><span class="frame fr-h">Head</span></td><td>9.5° below gaze, with a body-axis attitude ball 3° under it. Fades in beyond 16–22° off-nose. Hidden when looking below −20° or with the map open</td><td>0.7° text, 2.2° ball</td><td>Was always on, 17–22° above gaze. The ball replaces the conformal horizon</td></tr>
+      <tr><td>Target locator line<span class="obj">CombatHUD.targetArrow</span></td><td><span class="frame fr-a">Aircraft</span></td><td>From boresight toward a selected target outside the window, with the angle off the nose</td><td>4.8° line, 0.6° label</td><td>Replaces pinning to a 50° ellipse around your gaze</td></tr>
+      <tr><td>Minimap<span class="obj">DynamicMap (minimized)</span></td><td><span class="frame fr-p">Panel</span></td><td>Left MFD −18°, −27.5°, 0.7 m</td><td>16 × 15°</td><td>Moved off the 3 m plane</td></tr>
+      <tr><td>Target camera<span class="obj">TargetCam, TargetScreenUI</span></td><td><span class="frame fr-p">Panel</span></td><td>The aircraft's own cockpit screen. Optional enlarged repeater at +24°, −6°</td><td>Cockpit screen size. Repeater 30° wide</td><td>Kept. Adds an enlarge key</td></tr>
+      <tr><td>Damage, systems<span class="obj">StatusDisplay, SystemStatusDisplay</span></td><td><span class="frame fr-p">Panel</span></td><td>0°, −30.5°</td><td>13 × 9°</td><td>Was about +32°, +8°</td></tr>
+      <tr><td>Comms<span class="obj">MessageUI, KillDisplay, DialogueBox</span></td><td><span class="frame fr-p">Panel</span></td><td>−26°, +6°, at infinity</td><td>17 × 6.5°, 0.6° text, 4 lines</td><td>Moved off the 3 m plane</td></tr>
+      <tr><td>Full map<span class="obj">DynamicMap (maximized)</span></td><td><span class="frame fr-p">Panel</span></td><td>0°, −12°, about 0.7 m, tilted to face you. Header repeats flight data and warnings</td><td>50 × 30°</td><td>Was 88 × 57° at 3 m</td></tr>
+      <tr><td>Radar warning bar<span class="obj">RadarWarning</span></td><td><span class="frame fr-a">Aircraft</span></td><td>Top left of the window, −12.4°, +6.2°</td><td>Three 0.9° cells plus SRCH, TRK or LOCK</td><td>New: the desktop bar lives on the minimap only</td></tr>
+      <tr><td>Threat list<span class="obj">ThreatList</span></td><td><span class="frame fr-p">Panel</span></td><td>Top of the minimap MFD, as on desktop</td><td>Red strip, 0.6° text</td><td>Moves with the minimap</td></tr>
+      <tr><td>Hurt, blackout<span class="obj">GameplayUI.hurt, BlackoutCanvas</span></td><td><span class="frame fr-h">Head</span></td><td>Full view</td><td>n/a</td><td>Unchanged</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="plan" aria-labelledby="h-plan">
+  <div class="sec-head">
+    <h2 id="h-plan">How to build it</h2>
+    <p>Phased so each step ships on its own and can go upstream as a pull request to <code>dev</code>. File names are on <code>dev</code>.</p>
+  </div>
+  <div class="phases">
+    <div class="phase"><div class="n">PHASE 0</div><div><h3>Measure in-game</h3><p>In a free flight, use NOVR's local inspector to record the real sizes and positions of the FlightHud, HUDCenter and HMDCenter elements and the canvas scale. That confirms the "est." numbers above and gives before-and-after baselines. About an hour.</p></div></div>
+    <div class="phase"><div class="n">PHASE 1</div><div><h3>Degrees, not pixels</h3><p>The biggest win for the least code. About 2–3 evenings.</p><ul>
+      <li>Add a small <code>HudAngles</code> helper (degrees to world units at a given distance) and a <code>HudLayout</code> table holding the positions in this document.</li>
+      <li><code>UIRenderedCanvasBehavior</code>: set world-space canvas scale explicitly, independent of <code>Screen.height</code>. Remove <code>GetScreenHeightScale</code> from <code>VrHudProjectionHelper</code>.</li>
+      <li><code>NOVRFlightHudBehavior</code>, <code>NOVRHMDBehavior</code>: move speed, altitude, heading, weapons and countermeasures into the HUD window.</li>
+      <li><code>ModConfiguration</code>: <span class="mono">HUD Text Scale</span>, <span class="mono">HUD Window Offset</span>.</li>
+    </ul></div></div>
+    <div class="phase"><div class="n">PHASE 2</div><div><h3>A real pitch ladder</h3><p>About 3–4 evenings.</p><ul>
+      <li>Replace the texture slices in <code>PitchCompassBehavior</code> with rungs, ticks and labels built from lines and text. Centre them on the flight path marker, bend the negative rungs, and add the horizon.</li>
+      <li>Keep it on the clipped layer from <code>NOUIManager.ClippedHudCamera</code> so the cockpit hides it. Add a window mask (stencil or UI mask) for the 26° × 23° window.</li>
+    </ul></div></div>
+    <div class="phase"><div class="n">PHASE 3</div><div><h3>Cockpit panels and the map tablet</h3><p>About a week of evenings.</p><ul>
+      <li>New <code>NOVRCockpitPanel</code> component: a world-space canvas at a cockpit-fixed pose with its own depth rules. Use it for the minimap (<code>DynamicMap.hudMapAnchor</code>), <code>StatusDisplay</code> and <code>MessageUI</code>. Leave <code>TargetCam</code> on its cockpit screen and add the optional enlarged repeater.</li>
+      <li>Full map tablet: summon on open, recentre key, keep <code>NOVRDynamicMapBehavior</code> and <code>VrCanvasHitTester</code> clicks working with mouse and controller.</li>
+    </ul></div></div>
+    <div class="phase"><div class="n">PHASE 4</div><div><h3>Helmet layer and declutter</h3><p>About 3–4 evenings.</p><ul>
+      <li><code>NOVRHMDBehavior</code>: fade by angle off the nose, hide below −20° and with the map open. Add target and threat arrows.</li>
+      <li><code>HUDUnitMarkerPatch</code>: angular icon sizes, distance fade, label rules. <code>ThreatItemPatch</code>: HUD ring arrow and a shorter notch line.</li>
+    </ul></div></div>
+    <div class="phase"><div class="n">PHASE 5</div><div><h3>Polish</h3><ul>
+      <li>Halo material for HUD strokes and text, headset presets for text scale, settings in <code>NativeVrUiSettingsPanel</code>.</li>
+      <li>Check upstream's unmerged <code>feature/screenspace-ztest-always-ui</code> branch (static, HMD and smoothed-HMD "armatures"). It is the same four-frame idea, so agree the direction with the maintainer before Phase 3.</li>
+    </ul></div></div>
+  </div>
+</section>
+
+<section id="questions" aria-labelledby="h-q">
+  <div class="sec-head"><h2 id="h-q">Open questions for you</h2></div>
+  <ol class="q">
+    <li><b>Headset.</b> Your vault and logs point to a Rift S, which resolves about 14 px/deg. The spec's base sizes target 20–25 px/deg headsets, so on the Rift S the text scale defaults to 1.2×. Are you planning a newer headset, or should the Rift S be the baseline everything is tuned on?</li>
+    <li><b>HUD window size.</b> 26° × 23° matches a real wide-angle HUD. Would you prefer it slightly larger (30° × 26°) at the cost of more eye movement?</li>
+    <li><b>Comms placement.</b> Left of the HUD at eye level (proposed), or low on the right MFD edge?</li>
+    <li><b>Game settings versus NOVR settings.</b> Keep reading the game's HUD colour and text size, or give NOVR its own VR values and ignore the desktop ones?</li>
+    <li><b>Map summon.</b> Should the full map always open 13° below the nose, or open wherever you're looking?</li>
+  </ol>
+</section>
+
+<section id="sources" aria-labelledby="h-src">
+  <div class="sec-head"><h2 id="h-src">Sources</h2></div>
+  <div class="two">
+    <div class="stack"><h3>HUD and helmet symbology</h3><ul class="sources">
+      <li><a href="https://www.cevians.com/app/uploads/2021/01/MIL-HDBK-87213.pdf">MIL-HDBK-87213, Electronically/Optically Generated Airborne Displays</a></li>
+      <li><a href="https://ntrs.nasa.gov/citations/19960033220">Newman, NASA CR-196697: HUD and HMD symbology</a></li>
+      <li><a href="https://ntrs.nasa.gov/api/citations/19950017610/downloads/19950017610.pdf">NASA TM-4665, TRISTAR I pitch-ladder study</a></li>
+      <li><a href="https://ntrs.nasa.gov/api/citations/19930014219/downloads/19930014219.pdf">NASA TM-4438, helmet display attitude study</a></li>
+      <li><a href="https://usaarl.health.mil/assets/docs/hmds/section-26-chapter-17-guidelines-for-hmd-design.pdf">USAARL, guidelines for HMD design</a></li>
+      <li><a href="https://rochesteravionicarchives.co.uk/collection/head-up-display-hud/f-16c-d-hud-pilot-s-display-unit-1">Rochester Avionic Archives: F-16C/D HUD</a>, <a href="https://rochesteravionicarchives.co.uk/items/eurofighter-typhoon-head-up-display">Typhoon HUD</a></li>
+      <li><a href="https://github.com/lord-vesel/dcs-doc/tree/master/en/docs/f16">DCS F-16C</a> and <a href="https://github.com/lord-vesel/dcs-doc/tree/master/en/docs/fa18c">F/A-18C</a> documentation (layout proxies)</li>
+      <li><a href="https://forums.vrsimulations.com/support/index.php/Cockpit_Systems">VRS Superbug wiki: F/A-18 HUD</a></li>
+      <li><a href="https://www.globalsecurity.org/military/library/policy/navy/ntsp/jhmcs-d_2002.pdf">US Navy JHMCS training plan</a></li>
+      <li><a href="https://www.thalesdsi.com/wp-content/uploads/2018/11/Scorpion-Data-Sheet-06262018.pdf">Thales Scorpion data sheet</a>, <a href="https://www.baesystems.com/en/product/striker-ii-digital-helmet-mounted-display">BAE Striker II</a></li>
+      <li><a href="https://www.codeonemagazine.com/c130_article.html?item_id=35">Code One: the F-35 front office</a></li>
+      <li><a href="https://hfcc.dot.gov/publications/docs/GeneralGuidance/zz_FAA_GeneralGuidanceDoc_Chapter_03_Section_01.html">FAA/Volpe display guidance</a>, <a href="https://www.ecfr.gov/current/title-14/chapter-I/subchapter-C/part-25/subpart-F/subject-group-ECFR3043e8882f16d6e/section-25.1322">14 CFR 25.1322 (alert colours)</a></li>
+    </ul></div>
+    <div class="stack"><h3>VR design and headsets</h3><ul class="sources">
+      <li><a href="https://learn.microsoft.com/en-us/windows/mixed-reality/design/typography">Microsoft Mixed Reality: typography</a>, <a href="https://learn.microsoft.com/en-us/windows/mixed-reality/design/comfort">comfort</a></li>
+      <li><a href="https://developers.meta.com/horizon/design/styles_typography/">Meta Horizon: typography</a>, <a href="https://developers.meta.com/horizon/documentation/unity/os-compositor-layers/">compositor layers</a></li>
+      <li><a href="https://static.oculus.com/documentation/pdfs/intro-vr/latest/bp.pdf">Oculus best practices (PDF)</a></li>
+      <li><a href="https://www.meta.com/blog/vr-display-optics-pancake-lenses-ppd/">Meta: pixels per degree across Quest headsets</a></li>
+      <li><a href="https://developer.android.com/design/ui/xr/guides/visual-design">Android XR visual design</a></li>
+      <li><a href="https://developer.apple.com/design/human-interface-guidelines/spatial-layout">Apple visionOS: spatial layout</a></li>
+      <li><a href="https://hf.tc.faa.gov/hfds/download-hfds/hfds_pdfs/Ch5_Displays_and_printers.pdf">FAA Human Factors Design Standard, ch. 5</a></li>
+      <li><a href="https://arxiv.org/abs/2004.01545">Kojić et al. 2020: text size preferences in VR</a></li>
+      <li><a href="https://docs.unity3d.com/Packages/com.unity.xr.openxr@1.15/manual/features/compositionlayers.html">Unity OpenXR composition layers</a></li>
+    </ul></div>
+    <div class="stack"><h3>Other VR flight games</h3><ul class="sources">
+      <li><a href="https://vtolvr.wiki.gg/wiki/Head-Mounted_Cueing_System_(HMCS)">VTOL VR wiki: HMCS</a></li>
+      <li><a href="https://www.digitalcombatsimulator.com/en/files/3324620/">DCS realistic HUD clipping mod</a>, <a href="https://openkneeboard.com/features/vr-zoom/">OpenKneeboard</a></li>
+      <li><a href="https://blog.playstation.com/2019/01/15/a-closer-look-at-ace-combat-7-skies-unknowns-ps-vr-modes/">Ace Combat 7 VR modes</a></li>
+      <li><a href="https://steamcommunity.com/app/895870/discussions/1/2965021152077771723/">Project Wingman VR HUD thread</a></li>
+      <li><a href="https://forum.falcon-bms.com/topic/30720/4.38-vr-hud-not-collimated-to-infinity-regression-from-4.37.0/2">Falcon BMS: HUD not collimated in VR</a></li>
+      <li><a href="https://forums.flightsimulator.com/t/two-big-issues-with-floating-panels-eg-map-panel-atc-panel-in-vr/765732">MSFS floating panels in VR</a></li>
+      <li><a href="https://forum.warthunder.com/t/hud-in-quest3/341054">War Thunder HUD on Quest 3</a></li>
+    </ul></div>
+    <div class="stack"><h3>Nuclear Option and NOVR</h3><ul class="sources">
+      <li><a href="https://nuclearoption.wiki.gg/wiki/Development">Nuclear Option wiki: development history</a>, <a href="https://nuclearoption.wiki.gg/wiki/Game_Mechanics">game mechanics</a></li>
+      <li><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3475765569">Steam guide: map and HUD filters</a></li>
+      <li><a href="https://www.reddit.com/r/NuclearOption/comments/1rdeqa6/hud_and_ui_accessibility/">r/NuclearOption: HUD and UI accessibility</a></li>
+      <li><a href="https://www.reddit.com/r/NuclearOption/comments/1u3qmxd/novr_nuclear_option_virtual_reality/">r/NuclearOption: NOVR announcement thread</a></li>
+      <li><a href="https://github.com/InfernoSuperNova/novr/issues?q=is%3Aissue">NOVR issues</a> (#34, #38–#41, #48)</li>
+      <li><a href="https://github.com/dann1kid/novr/releases/tag/v0.4.8">dann1kid/novr 0.4.8 release notes</a></li>
+      <li>NOVR source, upstream <code>dev</code> @ 2a0f789, and the game's <code>Assembly-CSharp</code> type metadata (read locally)</li>
+    </ul></div>
+  </div>
+</section>
+</div>
+
+<script>
+(function(){
+'use strict';
+const D2R=Math.PI/180,R2D=180/Math.PI;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const n1=x=>(Math.round(x*10)/10).toString();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function dir(az,el){const a=az*D2R,e=el*D2R,c=Math.cos(e);return[c*Math.sin(a),Math.sin(e),c*Math.cos(a)];}
+function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function azel(v){return[Math.atan2(v[0],v[2])*R2D,Math.atan2(v[1],Math.hypot(v[0],v[2]))*R2D];}
+function nrm(v){const l=Math.hypot(v[0],v[1],v[2]);return[v[0]/l,v[1]/l,v[2]/l];}
+function attM(pitch,roll){const p=pitch*D2R,r=roll*D2R,cp=Math.cos(p),sp=Math.sin(p),cr=Math.cos(r),sr=Math.sin(r);return[[cr,sr,0],[-sr*cp,cr*cp,sp],[sr*sp,-cr*sp,cp]];}
+function a2w(M,a){return[dot(M[0],a),dot(M[1],a),dot(M[2],a)];}
+function w2a(M,w){return[M[0][0]*w[0]+M[1][0]*w[1]+M[2][0]*w[2],M[0][1]*w[0]+M[1][1]*w[1]+M[2][1]*w[2],M[0][2]*w[0]+M[1][2]*w[1]+M[2][2]*w[2]];}
+const pad3=h=>String(((Math.round(h)%360)+360)%360).padStart(3,'0');
+const wrap180=d=>((d+540)%360)-180;
+const fmtAlt=a=>Math.round(a).toLocaleString('en-CA');
+
+/* ---------------- spec (degrees) ---------------- */
+const SPEC={
+  win:{az0:-13,az1:13,el0:-12,el1:11},
+  t1:0.9,t2:0.7,t3:0.6,sw:0.12,
+  fpm:{r:0.55,wing:1.3,fin:0.65},
+  lad:{gap:1.6,len:3.2,tick:0.55,hor:12,span:17},
+  hdg:{el:8.0,half:10,k:0.5},
+  spd:{az:-9.8,el:0.8,w:4.4,h:1.6},
+  alt:{az:9.6,el:0.8,w:5.4,h:1.6},
+  colL:-12.4,colR:12.4,rowB:-10.6,
+  dlz:{az:11.9,el0:-9.0,el1:-3.8,max:30},
+  mk:{icon:1.0,far:0.75,td:2.2},
+  hmd:{strip:-9.5,ring:12},
+  mfdL:{az:-18,el:-27.5,w:16,h:15},
+  mfdR:{az:18,el:-27.5,w:16,h:15},
+  stat:{az:0,el:-30.5,w:13,h:9},
+  comms:{az:-26,el:6,w:17,h:6.5},
+  map:{az:0,el:-12,w:50,h:30}
+};
+
+/* ---------------- view ---------------- */
+function makeView(o){
+  const F=(o.W/2)/Math.tan(o.hfov/2*D2R);
+  const y=o.yaw*D2R,p=o.pitch*D2R;
+  const f=[Math.cos(p)*Math.sin(y),Math.sin(p),Math.cos(p)*Math.cos(y)];
+  const r=[Math.cos(y),0,-Math.sin(y)];
+  const u=[-Math.sin(p)*Math.sin(y),Math.cos(p),-Math.sin(p)*Math.cos(y)];
+  const M=attM(o.att.pitch,o.att.roll);
+  const cx=o.W/2,cy=o.H/2;
+  const pa=a=>{const z=dot(a,f);if(z<0.06)return null;return[cx+F*dot(a,r)/z,cy-F*dot(a,u)/z,z];};
+  const v={W:o.W,H:o.H,F,M,f,r,u,cx,cy,ppd:F*D2R,id:o.id,gaze:[o.yaw,o.pitch]};
+  v.A=(az,el)=>pa(dir(az,el));
+  v.Wd=(az,el)=>pa(w2a(M,dir(az,el)));
+  v.Wv=w=>pa(w2a(M,w));
+  v.Hd=(az,el)=>{const d=dir(az,el);return[cx+F*d[0]/d[2],cy-F*d[1]/d[2],d[2]];};
+  v.headOf=a=>{const x=dot(a,r),yy=dot(a,u),z=dot(a,f);return{x,y:yy,z,off:Math.acos(clamp(z,-1,1))*R2D};};
+  return v;
+}
+const kpx=(v,p)=>p?v.ppd/p[2]:v.ppd;
+
+/* ---------------- svg primitives ---------------- */
+function L(a,b,c,x){return(a&&b)?`<line x1="${n1(a[0])}" y1="${n1(a[1])}" x2="${n1(b[0])}" y2="${n1(b[1])}"${c?` class="${c}"`:''}${x||''}/>`:'';}
+function PL(pts,c,x,closed){const q=pts.filter(Boolean);if(q.length<2)return'';return`<${closed?'polygon':'polyline'} points="${q.map(z=>n1(z[0])+','+n1(z[1])).join(' ')}"${c?` class="${c}"`:''}${x||''}/>`;}
+function CI(p,r,c,x){return p?`<circle cx="${n1(p[0])}" cy="${n1(p[1])}" r="${n1(Math.max(r,0.6))}"${c?` class="${c}"`:''}${x||''}/>`:'';}
+function TX(v,p,s,cap,anc,c,x,raw){if(!p)return'';const fs=cap/0.72*v.ppd/p[2];return`<text x="${n1(p[0])}" y="${n1(p[1])}" font-size="${n1(fs)}" text-anchor="${anc||'middle'}" dominant-baseline="central"${c?` class="${c}"`:''}${x||''}>${raw?s:esc(s)}</text>`;}
+function BOX(fr,az,el,w,h,c,x){return PL([fr(az-w/2,el+h/2),fr(az+w/2,el+h/2),fr(az+w/2,el-h/2),fr(az-w/2,el-h/2)],c,x,true);}
+const both=s=>s?`<g class="halo">${s}</g><g class="sym">${s}</g>`:'';
+
+/* ---------------- scenery ---------------- */
+function scenery(v,s,defs){
+  const id=v.id;let o='';
+  const hw=a2w(v.M,v.f);const haz=azel(hw)[0];
+  const hp=[];for(let a=haz-178;a<=haz+178;a+=2){const p=v.Wd(a,0);if(p)hp.push(p);}
+  const up=v.Wd(haz,40)||[v.cx,-2000],dn=v.Wd(haz,-35)||[v.cx,v.H+2000];
+  const hz=v.Wd(haz,0)||[v.cx,v.cy];
+  defs.push(`<linearGradient id="${id}-sky" gradientUnits="userSpaceOnUse" x1="${n1(hz[0])}" y1="${n1(hz[1])}" x2="${n1(up[0])}" y2="${n1(up[1])}"><stop offset="0" stop-color="#cfdde4"/><stop offset=".35" stop-color="#8fb2cc"/><stop offset="1" stop-color="#3d6e9c"/></linearGradient>`);
+  defs.push(`<linearGradient id="${id}-gnd" gradientUnits="userSpaceOnUse" x1="${n1(hz[0])}" y1="${n1(hz[1])}" x2="${n1(dn[0])}" y2="${n1(dn[1])}"><stop offset="0" stop-color="#9aa69d"/><stop offset=".25" stop-color="#7a8a66"/><stop offset="1" stop-color="#4a5836"/></linearGradient>`);
+  defs.push(`<filter id="${id}-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>`);
+  o+=`<rect x="-10" y="-10" width="${v.W+20}" height="${v.H+20}" fill="url(#${id}-sky)"/>`;
+  if(hp.length>=2){
+    const a=hp[0],b=hp[hp.length-1];let nx=-(b[1]-a[1]),ny=b[0]-a[0];const l=Math.hypot(nx,ny)||1;nx/=l;ny/=l;
+    if((dn[0]-a[0])*nx+(dn[1]-a[1])*ny<0){nx=-nx;ny=-ny;}
+    const far=[[b[0]+nx*9000,b[1]+ny*9000],[a[0]+nx*9000,a[1]+ny*9000]];
+    o+=PL(hp.concat(far),'',` fill="url(#${id}-gnd)"`,true);
+    // distant hills
+    const mt=[],base=[];
+    for(let az=haz-100;az<=haz+100;az+=2){const e=0.15+0.8*Math.max(0,Math.sin(az*0.11)+0.6*Math.sin(az*0.047+1)+0.35*Math.sin(az*0.23+2));mt.push(v.Wd(az,e));base.push(v.Wd(az,-0.05));}
+    o+=PL(mt.concat(base.reverse()),'',' fill="#6f8394" fill-opacity=".55"',true);
+  }else if(v.gaze[1]<0){o+=`<rect x="-10" y="-10" width="${v.W+20}" height="${v.H+20}" fill="#6d7c5a"/>`;}
+  // ground grid for altitude cue
+  if(s.agl){
+    const h=s.agl,ds=[250,500,1000,2000,4000,8000,16000,32000];let g='';
+    const a0=Math.round(haz/10)*10;
+    for(let az=a0-80;az<=a0+80;az+=10){g+=PL(ds.map(d=>v.Wd(az,-Math.atan2(h,d)*R2D)),'','');}
+    for(const d of ds){const el=-Math.atan2(h,d)*R2D;const pts=[];for(let az=haz-88;az<=haz+88;az+=4)pts.push(v.Wd(az,el));g+=PL(pts,'','');}
+    o+=`<g fill="none" stroke="#1d2716" stroke-opacity=".22" stroke-width="1">${g}</g>`;
+  }
+  // runway
+  if(s.runway){
+    const R=s.runway,h=s.agl,P=(x,z)=>v.Wv(nrm([x,-h,z]));
+    o+=PL([P(-R.w/2,R.d0),P(R.w/2,R.d0),P(R.w/2,R.d0+R.L),P(-R.w/2,R.d0+R.L)],'',' fill="#3a3f43"',true);
+    let m='';for(let z=R.d0+80;z<R.d0+R.L-60;z+=90)m+=L(P(0,z),P(0,z+45));
+    for(let i=-3;i<=3;i++){if(i===0)continue;const x=i*R.w/8;m+=L(P(x,R.d0+8),P(x,R.d0+50));}
+    o+=`<g stroke="#e9ecee" stroke-width="1.4">${m}</g>`;
+  }
+  // clouds
+  for(const c of s.clouds||[]){const p=v.Wd(c[0],c[1]);if(!p)continue;const k=kpx(v,p);o+=`<ellipse cx="${n1(p[0])}" cy="${n1(p[1])}" rx="${n1(c[2]/2*k)}" ry="${n1(c[3]/2*k)}" fill="#ffffff" fill-opacity=".62" filter="url(#${id}-blur)"/>`;}
+  // ground objects and aircraft
+  for(const g of s.ground||[]){const p=v.Wd(g[0],g[1]);if(!p)continue;const k=kpx(v,p);o+=`<rect x="${n1(p[0]-0.22*k)}" y="${n1(p[1]-0.1*k)}" width="${n1(0.44*k)}" height="${n1(0.2*k)}" fill="#262a24"/>`;}
+  for(const a of s.air||[]){const p=a.a?v.A(a.a[0],a.a[1]):v.Wd(a.w[0],a.w[1]);if(!p)continue;const k=kpx(v,p);o+=`<g fill="#2a3036"><rect x="${n1(p[0]-0.28*k)}" y="${n1(p[1]-0.03*k)}" width="${n1(0.56*k)}" height="${n1(0.06*k)}"/><rect x="${n1(p[0]-0.04*k)}" y="${n1(p[1]-0.12*k)}" width="${n1(0.08*k)}" height="${n1(0.22*k)}"/></g>`;}
+  return o;
+}
+
+/* ---------------- HUD window (aircraft frame) ---------------- */
+function ladder(v,s){
+  const K=SPEC.lad;const [faz,fel]=azel(a2w(v.M,dir(s.fpm.az,s.fpm.el)));
+  const h1=v.Wd(faz-1,0),h2=v.Wd(faz+1,0);const rot=(h1&&h2)?Math.atan2(h2[1]-h1[1],h2[0]-h1[0])*R2D:0;
+  const dash=` stroke-dasharray="${n1(0.7*v.ppd)} ${n1(0.45*v.ppd)}"`;let o='';
+  for(let p=-85;p<=85;p+=5){
+    if(Math.abs(p-fel)>K.span)continue;
+    const k=1/Math.max(Math.cos(p*D2R),0.25);
+    if(p===0){for(const sd of[-1,1])o+=L(v.Wd(faz+sd*K.gap*k,0),v.Wd(faz+sd*K.hor*k,0));continue;}
+    const neg=p<0;
+    for(const sd of[-1,1]){
+      const rise=neg?K.len*Math.tan(Math.abs(p)/2*D2R):0;
+      const ie=[faz+sd*K.gap*k,p],ee=[faz+sd*(K.gap+K.len)*k,p+rise];
+      const pi=v.Wd(ie[0],ie[1]),pe=v.Wd(ee[0],ee[1]);
+      o+=L(pi,pe,'',neg?dash:'');
+      o+=L(pe,v.Wd(ee[0],ee[1]+(neg?K.tick:-K.tick)));
+      const lp=v.Wd(ee[0]+sd*0.55*k,ee[1]+(neg?K.tick/2:-K.tick/2));
+      if(lp)o+=TX(v,lp,String(p).replace('-','−'),SPEC.t3,sd<0?'end':'start','',` transform="rotate(${n1(rot)} ${n1(lp[0])} ${n1(lp[1])})"`);
+    }
+  }
+  return o;
+}
+function fpm(v,s){
+  const c=v.A(s.fpm.az,s.fpm.el);if(!c)return'';const k=kpx(v,c),F=SPEC.fpm,a=s.fpm.az,e=s.fpm.el;
+  let o=CI(c,F.r*k)+L(v.A(a-F.r,e),v.A(a-F.r-F.wing,e))+L(v.A(a+F.r,e),v.A(a+F.r+F.wing,e))+L(v.A(a,e+F.r),v.A(a,e+F.r+F.fin));
+  if(s.ebracket){const x=a-1.75;o+=PL([v.A(x+0.45,e+1.25),v.A(x,e+1.25),v.A(x,e-1.25),v.A(x+0.45,e-1.25)])+L(v.A(x-0.3,e),v.A(x,e));}
+  return o;
+}
+function waterline(v){return PL([[-2.2,0],[-1.2,0],[-0.6,-0.7],[0,0],[0.6,-0.7],[1.2,0],[2.2,0]].map(q=>v.A(q[0],q[1])));}
+function headingTape(v,s){
+  const H=SPEC.hdg,e=H.el,k=H.k;let o='';
+  for(let h=Math.ceil((s.hdg-H.half/k)/5)*5;h<=s.hdg+H.half/k;h+=5){
+    const off=(h-s.hdg)*k,big=((h%10)+10)%10===0;
+    o+=L(v.A(off,e),v.A(off,e+(big?0.9:0.5)));
+    if(big&&Math.abs(off)>3.1)o+=TX(v,v.A(off,e+1.55),pad3(h),SPEC.t3);
+  }
+  o+=BOX(v.A,0,e+1.55,3.6,1.3)+TX(v,v.A(0,e+1.55),pad3(s.hdg),SPEC.t2);
+  o+=PL([v.A(-0.45,e-0.8),v.A(0,e-0.15),v.A(0.45,e-0.8)]);
+  if(s.steer!=null){const d=clamp(wrap180(s.steer-s.hdg)*k,-H.half,H.half);o+=PL([v.A(d,e+0.05),v.A(d+0.45,e-0.45),v.A(d,e-0.95),v.A(d-0.45,e-0.45)],'c','',true);}
+  return o;
+}
+function dataBlocks(v,s){
+  const S=SPEC.spd,A=SPEC.alt;let o='';
+  o+=BOX(v.A,S.az,S.el,S.w,S.h)+TX(v,v.A(S.az,S.el),String(s.spd),SPEC.t1);
+  o+=BOX(v.A,A.az,A.el,A.w,A.h)+TX(v,v.A(A.az,A.el),fmtAlt(s.alt),SPEC.t1);
+  const left=[[`M ${s.mach.toFixed(2)}`,SPEC.t2],[`G ${s.g.toFixed(1)}`,SPEC.t2],[`α ${s.aoa.toFixed(1)}`,SPEC.t2],[s.thr,SPEC.t3],[s.fuel,SPEC.t3,s.fuelLow?'c':'']];
+  left.forEach((t,i)=>{if(t[0])o+=TX(v,v.A(SPEC.colL,-1.2-i*1.35),t[0],t[1],'start',t[2]||'');});
+  const right=[s.ralt?[`R ${s.ralt}`,SPEC.t2]:null,s.vv?[`VV ${s.vv}`,SPEC.t2]:null,s.gear?[s.gear,SPEC.t2]:null].filter(Boolean);
+  right.forEach((t,i)=>{o+=TX(v,v.A(SPEC.colR,-1.2-i*1.35),t[0],t[1],'end');});
+  if(s.rwr){const lv=s.rwr,cls=['','','c','w'][lv];for(let i=0;i<3;i++)o+=BOX(v.A,SPEC.colL+0.45+i*1.05,6.2,0.9,0.55,i<lv?('solid '+cls).trim():cls);o+=TX(v,v.A(SPEC.colL+3.4,6.2),['','SRCH','TRK','LOCK'][lv],SPEC.t3,'start',cls);}
+  const b=SPEC.rowB;
+  if(s.mode)o+=TX(v,v.A(SPEC.colL,b),s.mode,SPEC.t2,'start');
+  if(s.cm)o+=TX(v,v.A(SPEC.colL+(s.mode?s.mode.length*0.62+1.0:0),b),s.cm,SPEC.t3,'start',s.cmLow?'c':'');
+  if(s.wpn){const arm=s.arm==='SAFE'?'<tspan class="c">SAFE</tspan>  ':(s.arm?`${s.arm}  `:'');o+=TX(v,v.A(SPEC.colR,b),arm+esc(s.wpn),SPEC.t2,'end','','',true);}
+  return o;
+}
+function weaponCues(v,s){
+  let o='';
+  if(s.dlz){const D=SPEC.dlz,z=s.dlz,y=r=>D.el0+(D.el1-D.el0)*clamp(r/D.max,0,1);
+    o+=L(v.A(D.az,y(0)),v.A(D.az,y(D.max)));
+    o+=L(v.A(D.az-0.55,y(z.rmax)),v.A(D.az,y(z.rmax)))+L(v.A(D.az-0.55,y(z.rmin)),v.A(D.az,y(z.rmin)));
+    o+=L(v.A(D.az+0.3,y(z.ne[0])),v.A(D.az+0.3,y(z.ne[1])),'thick');
+    const ty=y(z.r);o+=PL([v.A(D.az-0.12,ty),v.A(D.az-0.8,ty+0.42),v.A(D.az-0.8,ty-0.42)],'','',true);
+    o+=TX(v,v.A(D.az-1.1,ty),z.r.toFixed(1),SPEC.t3,'end')+TX(v,v.A(D.az-1.1,ty-1.05),`Vc ${z.vc}`,SPEC.t3,'end');
+  }
+  if(s.gun){const G=s.gun,t=v.A(G.tgt[0],G.tgt[1]),p=v.A(G.pip[0],G.pip[1]);
+    if(p){const k=kpx(v,p);o+=CI(p,0.9*k)+CI(p,0.08*k,'solid');
+      if(t){const dx=t[0]-p[0],dy=t[1]-p[1],l=Math.hypot(dx,dy);if(l>2.2*k)o+=L([p[0]+dx/l*0.9*k,p[1]+dy/l*0.9*k],[t[0]-dx/l*1.2*k,t[1]-dy/l*1.2*k]);}
+      o+=TX(v,[p[0]+1.2*k,p[1]+0.9*k,p[2]],G.rng,SPEC.t3,'start');}
+    o+=L(v.A(-0.8,-1.5),v.A(-0.25,-1.5))+L(v.A(0.25,-1.5),v.A(0.8,-1.5))+L(v.A(0,-0.7),v.A(0,-1.25))+L(v.A(0,-1.75),v.A(0,-2.3));
+  }
+  if(s.ccip){const P=s.ccip,p=v.A(P.pip[0],P.pip[1]),f=v.A(s.fpm.az,s.fpm.el-SPEC.fpm.r);
+    if(p){const k=kpx(v,p);o+=CI(p,0.8*k)+CI(p,0.08*k,'solid');if(f)o+=L(f,[p[0],p[1]-0.8*k]);o+=TX(v,[p[0]+1.2*k,p[1],p[2]],P.rel,SPEC.t3,'start');}
+  }
+  if(s.cue)o+=BOX(v.A,0,-6,s.cue.length*0.78+1.2,1.45)+TX(v,v.A(0,-6),s.cue,SPEC.t1);
+  if(s.caution)o+=TX(v,v.A(0,-7.4),s.caution,SPEC.t2,'middle','c');
+  if(s.threat){const b=a2w(v.M,[0,0,1]);const ta=w2a(v.M,dir(s.threat.w[0],s.threat.w[1]));const rb=Math.atan2(ta[0],ta[2]);
+    const R=7,ux=Math.sin(rb),uy=Math.cos(rb),px=-uy,py=ux;const at=r=>v.A(r*ux,r*uy);
+    o+=L(at(R-0.6),at(R+1.0),'w')+L(at(R+1.0),v.A((R+0.2)*ux+0.55*px,(R+0.2)*uy+0.55*py),'w')+L(at(R+1.0),v.A((R+0.2)*ux-0.55*px,(R+0.2)*uy-0.55*py),'w');
+    o+=TX(v,v.A((R-2.3)*ux,(R-2.3)*uy),s.threat.label,SPEC.t3,'middle','w');
+    o+=`<g class="blink">${BOX(v.A,0,4.6,7.4,1.55,'w')}${TX(v,v.A(0,4.6),'MISSILE',1.0,'middle','w')}</g>`;
+  }
+  if(s.glide){o+=L(v.Wd(-6,-3),v.Wd(-1.2,-3),'',` stroke-dasharray="${n1(0.5*v.ppd)} ${n1(0.35*v.ppd)}"`)+L(v.Wd(1.2,-3),v.Wd(6,-3),'',` stroke-dasharray="${n1(0.5*v.ppd)} ${n1(0.35*v.ppd)}"`);}
+  const sel=(s.markers||[]).find(m=>m.sel);
+  if(sel){const va=sel.a?dir(sel.a[0],sel.a[1]):w2a(v.M,dir(sel.w[0],sel.w[1]));const tq=azel(va),W=SPEC.win;
+    if(tq[0]<W.az0||tq[0]>W.az1||tq[1]<W.el0||tq[1]>W.el1){const an=Math.atan2(tq[1],tq[0]),ux=Math.cos(an),uy=Math.sin(an);
+      o+=L(v.A(1.4*ux,1.4*uy),v.A(6.2*ux,6.2*uy));o+=TX(v,v.A(7.6*ux,7.6*uy),Math.round(Math.acos(clamp(va[2],-1,1))*R2D)+'°',SPEC.t3);}}
+  return o;
+}
+function hudWindow(v,s){
+  const W=SPEC.win;const q=[v.A(W.az0,W.el1),v.A(W.az1,W.el1),v.A(W.az1,W.el0),v.A(W.az0,W.el0)];
+  if(q.some(p=>!p))return null;
+  return q;
+}
+
+/* ---------------- world layer ---------------- */
+function markerIcon(v,m,p,k,sz){
+  const c={ha:'h',hg:'h',sam:'h',fa:'f',fg:'f',obj:'c',ab:''}[m.kind]||'';const r=sz*k/2;const x=p[0],y=p[1];let o='';
+  if(m.kind==='ha'||m.kind==='fa')o+=PL([[x,y-r],[x+r,y],[x,y+r],[x-r,y]],c,'',true);
+  else if(m.kind==='hg'||m.kind==='fg')o+=PL([[x-r*0.85,y-r*0.85],[x+r*0.85,y-r*0.85],[x+r*0.85,y+r*0.85],[x-r*0.85,y+r*0.85]],c,'',true);
+  else if(m.kind==='sam'){o+=PL([[x-r*0.85,y-r*0.2],[x+r*0.85,y-r*0.2],[x+r*0.85,y+r*0.85],[x-r*0.85,y+r*0.85]],c,'',true)+`<path class="${c}" d="M${n1(x-r*0.6)} ${n1(y-r*0.45)} Q${n1(x)} ${n1(y-r*1.3)} ${n1(x+r*0.6)} ${n1(y-r*0.45)}"/>`;}
+  else if(m.kind==='obj'){const R=r*1.2;o+=PL([[x,y-R],[x+R,y],[x,y+R],[x-R,y]],c,'',true)+CI([x,y],0.1*k,'solid '+c);}
+  else if(m.kind==='ab'){o+=L([x-r*0.35,y-r*0.9],[x-r*0.35,y+r*0.9])+L([x+r*0.35,y-r*0.9],[x+r*0.35,y+r*0.9])+L([x-r*0.8,y+r*0.9],[x+r*0.8,y+r*0.9]);}
+  return{o,c};
+}
+function worldLayer(v,s){
+  let o='';const wc=v.A(0,0),cxw=wc?wc[0]:v.cx;
+  for(const m of s.markers||[]){
+    const p=m.a?v.A(m.a[0],m.a[1]):v.Wd(m.w[0],m.w[1]);if(!p)continue;
+    if(p[0]<-200||p[0]>v.W+200||p[1]<-200||p[1]>v.H+200)continue;
+    const k=kpx(v,p),sz=m.far?SPEC.mk.far:SPEC.mk.icon;const ic=markerIcon(v,m,p,k,sz);let g=ic.o;
+    if(m.sel){const h=SPEC.mk.td/2*k;g+=PL([[p[0]-h,p[1]-h],[p[0]+h,p[1]-h],[p[0]+h,p[1]+h],[p[0]-h,p[1]+h]],'','',true);}
+    if(m.label){const dx=(m.sel?SPEC.mk.td/2:sz/2)*k+0.45*k,lf=p[0]<cxw;g+=TX(v,[p[0]+(lf?-dx:dx),p[1],p[2]],m.label,SPEC.t3,lf?'end':'start',ic.c);}
+    o+=m.far?`<g opacity=".5">${g}</g>`:g;
+  }
+  if(s.notch){const n=s.notch,top=v.Wd(n.w,8),bot=v.Wd(n.w,-6);
+    o+=L(top,bot,'c',` stroke-dasharray="${n1(0.6*v.ppd)} ${n1(0.4*v.ppd)}"`);
+    if(top)o+=TX(v,[top[0],top[1]-0.8*kpx(v,top),top[2]],n.label,SPEC.t3,'middle','c');}
+  if(s.runway){const R=s.runway,h=s.agl,P=(x,z)=>v.Wv(nrm([x,-h,z]));
+    o+=PL([P(-R.w/2,R.d0),P(R.w/2,R.d0),P(R.w/2,R.d0+R.L),P(-R.w/2,R.d0+R.L)],'','',true);
+    const ap=P(0,R.d0+300);if(ap){const k=kpx(v,ap);o+=L([ap[0]-1.2*k,ap[1]],[ap[0]-0.35*k,ap[1]])+L([ap[0]+0.35*k,ap[1]],[ap[0]+1.2*k,ap[1]]);}
+    const lb=P(R.w/2,R.d0);if(lb)o+=TX(v,[lb[0]+1.4*kpx(v,lb),lb[1],lb[2]],R.label,SPEC.t3,'start');}
+  return o;
+}
+
+/* ---------------- helmet layer (head frame) ---------------- */
+function helmet(v,s){
+  const off=v.headOf([0,0,1]).off;let a=clamp((off-16)/6,0,1);
+  if(s.mapOpen||v.gaze[1]<-20)a=0;if(a<=0)return'';
+  const H=v.Hd;let o='';const c=H(0,0),k=kpx(v,c);
+  o+=`<g opacity=".75">${CI(c,0.9*k)}${L(H(-1.7,0),H(-1.15,0))}${L(H(1.15,0),H(1.7,0))}${L(H(0,1.15),H(0,1.7))}${L(H(0,-1.15),H(0,-1.7))}</g>`;
+  const e=SPEC.hmd.strip;
+  o+=TX(v,H(-4.2,e),`${s.spd} KT`,SPEC.t2,'end')+TX(v,H(0,e),pad3(s.hdg)+'°',SPEC.t2)+TX(v,H(4.2,e),`${fmtAlt(s.alt)} FT`,SPEC.t2,'start');
+  {const ac=H(0,e-3.1),kk=kpx(v,ac),R0=1.1*kk,rr=s.att.roll*D2R,po=clamp(s.att.pitch/30,-0.9,0.9)*R0,dx=Math.cos(rr),dy=-Math.sin(rr),nx=Math.sin(rr),ny=Math.cos(rr),hc=[ac[0]+nx*po,ac[1]+ny*po],ch=Math.sqrt(Math.max(R0*R0-po*po,0));
+   o+=CI(ac,R0)+L([hc[0]-dx*ch,hc[1]-dy*ch],[hc[0]+dx*ch,hc[1]+dy*ch])+L([ac[0]-0.55*kk,ac[1]],[ac[0]-0.18*kk,ac[1]])+L([ac[0]+0.18*kk,ac[1]],[ac[0]+0.55*kk,ac[1]])+CI(ac,0.07*kk,'solid');}
+  const R=SPEC.hmd.ring;
+  const arrow=(vec,cls,label)=>{const hv=v.headOf(vec);const ph=Math.atan2(hv.y,hv.x);const ux=Math.cos(ph),uy=Math.sin(ph),px=-uy,py=ux;
+    let g=L(H((R-0.6)*ux,(R-0.6)*uy),H((R+1.1)*ux,(R+1.1)*uy),cls)+L(H((R+1.1)*ux,(R+1.1)*uy),H((R+0.25)*ux+0.6*px,(R+0.25)*uy+0.6*py),cls)+L(H((R+1.1)*ux,(R+1.1)*uy),H((R+0.25)*ux-0.6*px,(R+0.25)*uy-0.6*py),cls);
+    g+=TX(v,H((R-2.6)*ux,(R-2.6)*uy),label,SPEC.t3,'middle',cls);return g;};
+  if(s.threat){const ta=w2a(v.M,dir(s.threat.w[0],s.threat.w[1]));o+=arrow(ta,'w',s.threat.label);o+=`<g class="blink">${TX(v,H(0,6.5),'MISSILE',1.0,'middle','w')}</g>`;}
+  const sel=(s.markers||[]).find(m=>m.sel);
+  if(sel){const va=sel.a?dir(sel.a[0],sel.a[1]):w2a(v.M,dir(sel.w[0],sel.w[1]));const hv=v.headOf(va);if(hv.off>14)o+=arrow(va,'',`TGT ${Math.round(hv.off)}°`);}
+  return`<g opacity="${a.toFixed(2)}">${o}</g>`;
+}
+
+/* ---------------- cockpit ---------------- */
+function cockpit(v,defs){
+  const id=v.id;defs.push(`<linearGradient id="${id}-dash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3339"/><stop offset="1" stop-color="#14191c"/></linearGradient>`);
+  const g=v.gaze[0],edge=az=>-13.5-0.0035*Math.pow(Math.min(Math.abs(az),95),2);const bot=Math.max(-80,v.gaze[1]-45);
+  const top=[],low=[];for(let az=g-72;az<=g+72;az+=3)top.push(v.A(az,edge(az)));for(let az=g+72;az>=g-72;az-=6)low.push(v.A(az,bot));
+  let o=PL(top.concat(low),'',` fill="url(#${id}-dash)"`,true)+PL(top,'',' fill="none" stroke="#56636b" stroke-width="2"');
+  const arch=[[-40,-16],[-37.5,-2],[-34.5,8],[-27,19],[-14,26],[0,28.5],[14,26],[27,19],[34.5,8],[37.5,-2],[40,-16]].map(q=>v.A(q[0],q[1]));
+  o+=PL(arch,'',` fill="none" stroke="#1b2227" stroke-width="${n1(1.5*v.ppd)}" stroke-linejoin="round" stroke-linecap="round"`);
+  o+=PL(arch,'',` fill="none" stroke="#39444b" stroke-width="1.2"`);
+  const post=x=>L(v.A(x,-13.6),v.A(x,11.6),'',` stroke="#252d32" stroke-width="${n1(0.4*v.ppd)}" stroke-linecap="round"`);
+  o+=post(-13.7)+post(13.7)+L(v.A(-13.7,11.6),v.A(13.7,11.6),'',` stroke="#2f383e" stroke-width="${n1(0.18*v.ppd)}"`);
+  return o;
+}
+function glass(v){const W=SPEC.win;return PL([v.A(W.az0-0.5,W.el1+0.5),v.A(W.az1+0.5,W.el1+0.5),v.A(W.az1+0.5,W.el0-1.4),v.A(W.az0-0.5,W.el0-1.4)],'',' fill="#b8e3f2" fill-opacity=".07"',true);}
+
+/* ---------------- panels ---------------- */
+let seq=0;
+function panel(v,P,fr,content,opt){
+  opt=opt||{};const f=fr==='H'?v.Hd:v.A;
+  const TL=f(P.az-P.w/2,P.el+P.h/2),TR=f(P.az+P.w/2,P.el+P.h/2),BL=f(P.az-P.w/2,P.el-P.h/2),BR=f(P.az+P.w/2,P.el-P.h/2);
+  if(!TL||!TR||!BL||!BR)return'';
+  const LW=1000,LH=Math.round(1000*P.h/P.w);const a=(TR[0]-TL[0])/LW,b=(TR[1]-TL[1])/LW,c=(BL[0]-TL[0])/LH,d=(BL[1]-TL[1])/LH;
+  const cid=`${v.id}-p${++seq}`;let o='';
+  if(opt.bezel){const m=opt.bezel;o+=PL([f(P.az-P.w/2-m,P.el+P.h/2+m),f(P.az+P.w/2+m,P.el+P.h/2+m),f(P.az+P.w/2+m,P.el-P.h/2-m),f(P.az-P.w/2-m,P.el-P.h/2-m)],'',' fill="#111619" stroke="#323c42" stroke-width="1.2"',true);}
+  o+=`<g transform="matrix(${[a,b,c,d,TL[0],TL[1]].map(x=>x.toFixed(4)).join(' ')})"><clipPath id="${cid}"><rect width="${LW}" height="${LH}"/></clipPath><g clip-path="url(#${cid})">${content(LW,LH,cid)}</g></g>`;
+  return o;
+}
+const land='80,190 170,120 300,95 420,125 520,105 640,140 725,210 765,300 705,380 600,425 520,485 400,470 300,430 200,445 128,380 90,290';
+const land2='800,420 880,392 952,432 942,512 862,542 802,500';
+function mapBody(LW,LH,big,s){
+  const fs=big?17:40;let o=`<rect width="${LW}" height="${LH}" fill="#10283a"/>`;
+  o+=`<g${big?'':' transform="translate(-313 -101) scale(1.9)"'}><polygon points="${land}" fill="#2c4636" stroke="#56785e" stroke-width="2"/><polygon points="${land2}" fill="#2c4636" stroke="#56785e" stroke-width="2"/><polygon points="330,210 400,180 470,215 430,260 350,255" fill="#35503f"/><polygon points="560,300 640,280 690,330 620,360" fill="#35503f"/>`;
+  let gr='';for(let x=100;x<1000;x+=100)gr+=`<line x1="${x}" y1="0" x2="${x}" y2="620"/>`;for(let y=100;y<620;y+=100)gr+=`<line x1="0" y1="${y}" x2="1000" y2="${y}"/>`;
+  o+=`<g stroke="#ffffff" stroke-opacity=".08" stroke-width="1.5">${gr}</g>`;
+  o+=`<circle cx="620" cy="262" r="70" fill="#ff5d50" fill-opacity=".08" stroke="#ff5d50" stroke-width="2" stroke-dasharray="8 6"/><circle cx="865" cy="468" r="56" fill="#ff5d50" fill-opacity=".08" stroke="#ff5d50" stroke-width="2" stroke-dasharray="8 6"/>`;
+  o+=`<path d="M432 300 L 520 290 L 612 266" fill="none" stroke="#ffb93a" stroke-width="3" stroke-dasharray="10 7"/>`;
+  o+=`<g fill="#57c9ff"><rect x="222" y="352" width="16" height="16"/><polygon points="300,292 312,312 288,312"/><polygon points="340,272 352,292 328,292"/></g>`;
+  o+=`<g fill="#ff5d50"><rect x="612" y="254" width="14" height="14"/><rect x="636" y="282" width="12" height="12"/><rect x="858" y="460" width="16" height="16"/><polygon points="700,170 712,190 688,190"/><polygon points="728,186 740,206 716,206"/></g>`;
+  o+=`<polygon points="416,300 440,290 440,310" fill="#5cff94"/></g>`;
+  if(big){
+    o+=`<rect width="${LW}" height="44" fill="#08141c" fill-opacity=".9"/>`;
+    o+=`<text x="18" y="29" fill="#dfe8ea" font-size="${fs}" font-family="B612 Mono,monospace" font-weight="700">TACTICAL MAP</text><text x="${LW-18}" y="29" fill="#9fb2b8" font-size="${fs}" font-family="B612 Mono,monospace" text-anchor="end">[M] CLOSE   [HOME] RECENTRE</text>`;
+    o+=`<text x="${LW/2}" y="29" fill="${s&&s.threat?'#ff5249':'#5cff94'}" font-size="${fs}" font-family="B612 Mono,monospace" font-weight="700" text-anchor="middle">${s?esc(s.threat?'MISSILE  '+s.threat.label:`${s.spd} KT  ${pad3(s.hdg)}°  ${fmtAlt(s.alt)} FT`):''}</text>`;
+    let lab='';'ABCDEFGHIJ'.split('').forEach((ch,i)=>{lab+=`<text x="${i*100+50}" y="66" text-anchor="middle">${ch}</text>`;});for(let i=1;i<=5;i++)lab+=`<text x="12" y="${i*100+50-28}">${i}</text>`;
+    o+=`<g fill="#ffffff" fill-opacity=".35" font-size="15" font-family="B612 Mono,monospace">${lab}</g>`;
+    o+=`<g font-family="B612 Mono,monospace" font-size="${fs}" font-weight="700"><text x="244" y="390" fill="#57c9ff">HOME AB</text><text x="640" y="236" fill="#ff5d50">SAM SITE</text><text x="880" y="530" fill="#ff5d50">SAM</text><text x="450" y="336" fill="#5cff94">YOU</text></g>`;
+    o+=`<g transform="translate(610 262)"><circle r="26" fill="none" stroke="#ffffff" stroke-width="2.5"/><circle r="4" fill="#ffffff"/></g>`;
+    o+=`<g transform="translate(640 150)"><rect width="190" height="54" rx="3" fill="#08141c" fill-opacity=".92" stroke="#3b4b52"/><text x="12" y="23" fill="#dfe8ea" font-size="16" font-family="B612 Mono,monospace" font-weight="700">SAM SITE · HOSTILE</text><text x="12" y="44" fill="#9fb2b8" font-size="15" font-family="B612 Mono,monospace">38 km · brg 260</text></g>`;
+    o+=`<g transform="translate(${LW-70} 70)" fill="#08141c" stroke="#3b4b52"><rect width="48" height="44" rx="3"/><rect y="52" width="48" height="44" rx="3"/><text x="24" y="31" fill="#dfe8ea" stroke="none" font-size="26" text-anchor="middle" font-family="B612 Mono,monospace">+</text><text x="24" y="83" fill="#dfe8ea" stroke="none" font-size="26" text-anchor="middle" font-family="B612 Mono,monospace">−</text></g>`;
+  }else{
+    o+=`<g font-family="B612 Mono,monospace" font-weight="700" font-size="${fs}"><text x="24" y="54" fill="#dfe8ea">N↑</text><text x="${LW-24}" y="54" fill="#9fb2b8" text-anchor="end">40 km</text><text x="24" y="${LH-26}" fill="#5cff94">MAP</text></g>`;
+    if(s&&s.threat)o+=`<rect y="0" width="${LW}" height="84" fill="#3a0c0c" fill-opacity=".92"/><text x="24" y="58" fill="#ff5249" font-size="${fs}" font-family="B612 Mono,monospace" font-weight="700">▲ ${esc(s.threat.label)}</text>`;
+  }
+  return o;
+}
+function tgp(LW,LH,s){
+  let o=`<rect width="${LW}" height="${LH}" fill="#5a6064"/><rect y="${LH*0.55}" width="${LW}" height="${LH*0.45}" fill="#4a4f52"/><rect y="${LH*0.62}" width="${LW}" height="30" fill="#6b7175"/>`;
+  if(s.tgp){o+=`<g fill="#eef1f2"><rect x="440" y="${LH*0.5}" width="120" height="44" rx="6"/><rect x="480" y="${LH*0.5-24}" width="56" height="28" rx="5"/><rect x="530" y="${LH*0.5-16}" width="70" height="8"/></g>`;}
+  o+=`<g stroke="#f4f7f8" stroke-width="5"><line x1="500" y1="${LH*0.5-260}" x2="500" y2="${LH*0.5-90}"/><line x1="500" y1="${LH*0.5+120}" x2="500" y2="${LH*0.5+290}"/><line x1="230" y1="${LH*0.5+22}" x2="400" y2="${LH*0.5+22}"/><line x1="600" y1="${LH*0.5+22}" x2="770" y2="${LH*0.5+22}"/></g>`;
+  o+=`<g font-family="B612 Mono,monospace" font-weight="700" font-size="44" fill="#f4f7f8"><text x="28" y="66">TGP</text><text x="${LW-28}" y="66" text-anchor="end">IR ×8</text><text x="28" y="${LH-34}">${esc(s.tgp?s.tgp.a:'NO TGT')}</text><text x="${LW-28}" y="${LH-34}" text-anchor="end">${esc(s.tgp?s.tgp.b:'')}</text></g>`;
+  return o;
+}
+function statusPanel(LW,LH,s){
+  const d=s.dmg||'';const part=(n)=>d.includes(n)?'#ffb93a':'#5cff94';
+  let o=`<rect width="${LW}" height="${LH}" fill="#0d1417"/>`;
+  o+=`<g transform="translate(40 40) scale(0.62)" stroke-width="5" fill="none"><polygon points="380,20 420,140 440,300" stroke="${part('nose')}"/><polygon points="440,300 760,460 760,510 440,480" stroke="${part('rwing')}"/><polygon points="320,300 0,460 0,510 320,480" stroke="${part('lwing')}"/><polygon points="380,20 340,140 320,300 320,480 330,600 430,600 440,480 440,300 420,140" stroke="${part('body')}"/><polygon points="330,600 250,690 250,720 510,720 510,690 430,600" stroke="${part('tail')}"/></g>`;
+  const rows=[['ENG','OK'],['FCS','OK'],['RDR',d.includes('rdr')?'DMG':'OK'],['GEAR',s.gear?'DN':'UP'],['FUEL',s.fuel?s.fuel.replace('FUEL ',''):'—']];
+  rows.forEach((r,i)=>{const bad=r[1]==='DMG';o+=`<text x="560" y="${110+i*112}" font-family="B612 Mono,monospace" font-weight="700" font-size="62" fill="${bad?'#ffb93a':'#5cff94'}">${r[0]}</text><text x="${LW-40}" y="${110+i*112}" text-anchor="end" font-family="B612 Mono,monospace" font-weight="700" font-size="62" fill="${bad?'#ffb93a':'#5cff94'}">${r[1]}</text>`;});
+  return o;
+}
+function commsPanel(LW,LH,s){
+  const lines=s.comms||[];let o=`<rect width="${LW}" height="${LH}" fill="#081015" fill-opacity=".42" rx="10"/>`;
+  lines.forEach((l,i)=>{const op=1-(lines.length-1-i)*0.22;o+=`<text x="26" y="${86+i*94}" font-family="B612 Mono,monospace" font-weight="700" font-size="50" fill="${l[1]||'#dfe8ea'}" fill-opacity="${op.toFixed(2)}">${esc(l[0])}</text>`;});
+  return o;
+}
+function panelsLayer(v,s){
+  let o='';
+  o+=panel(v,SPEC.mfdL,'A',(W,H)=>mapBody(W,H,false,s),{bezel:0.9});
+  o+=panel(v,SPEC.mfdR,'A',(W,H)=>tgp(W,H,s),{bezel:0.9});
+  o+=panel(v,SPEC.stat,'A',(W,H)=>statusPanel(W,H,s),{bezel:0.7});
+  if(s.comms&&s.comms.length)o+=panel(v,SPEC.comms,'A',(W,H)=>commsPanel(W,H,s));
+  return o;
+}
+function mapLayer(v,s,mode){
+  if(!s.mapOpen)return'';
+  const P=mode==='H'?{az:0,el:-4,w:SPEC.map.w,h:SPEC.map.h}:SPEC.map;
+  return panel(v,P,mode==='H'?'H':'A',(W,H)=>mapBody(W,H,true,s),{bezel:0.6});
+}
+
+/* ---------------- overlays ---------------- */
+function rings(v){
+  let o='';const c=[v.cx,v.cy];
+  for(const r of[15,30]){const R=v.F*Math.tan(r*D2R);o+=`<circle cx="${n1(c[0])}" cy="${n1(c[1])}" r="${n1(R)}"/>`;o+=`<text x="${n1(c[0]+R*0.72)}" y="${n1(c[1]-R*0.72)}" font-size="14">${r}°${r===15?' · eyes only':' · turn head beyond'}</text>`;}
+  return`<g class="grid">${o}</g>`;
+}
+function rulers(v){
+  const W=SPEC.win;let o='';const tE=W.el1+1.4,lA=W.az0-1.4;
+  o+=L(v.A(-15,tE),v.A(15,tE));
+  for(let a=-15;a<=15;a++){const big=a%5===0;o+=L(v.A(a,tE),v.A(a,tE+(big?0.7:0.35)));if(big)o+=TX(v,v.A(a,tE+1.3),(a>0?'+':'')+a+'°',0.42,'middle');}
+  o+=L(v.A(lA,-13),v.A(lA,12));
+  for(let e=-13;e<=12;e++){const big=e%5===0;o+=L(v.A(lA,e),v.A(lA-(big?0.7:0.35),e));if(big)o+=TX(v,v.A(lA-1.0,e),(e>0?'+':'')+e+'°',0.42,'end');}
+  return`<g class="ruler">${o}</g>`;
+}
+
+/* ---------------- render ---------------- */
+function render(svg,s,o){
+  seq=0;const W=1200,H=860;
+  const v=makeView({W,H,hfov:o.hfov,yaw:o.yaw,pitch:o.pitch,att:s.att,id:svg.dataset.id});
+  const sw=SPEC.sw*v.ppd;svg.style.setProperty('--sw',n1(Math.max(sw,1.1)));svg.style.setProperty('--hw',n1(Math.max(sw,1.1)+2.6));svg.style.setProperty('--thw',n1(Math.max(2.4,sw*1.6)));
+  const defs=[];let body='';const L_=o.layers;
+  body+=scenery(v,s,defs);
+  const win=hudWindow(v,s);
+  if(L_.cockpit&&win)body+=glass(v);
+  if(L_.world)body+=both(worldLayer(v,s));
+  if(L_.hud&&win){
+    defs.push(`<clipPath id="${v.id}-win"><polygon points="${win.map(p=>n1(p[0])+','+n1(p[1])).join(' ')}"/></clipPath>`);
+    let hud=ladder(v,s)+fpm(v,s)+headingTape(v,s)+dataBlocks(v,s)+weaponCues(v,s);if(!s.gun&&!s.ccip)hud+=waterline(v);
+    body+=`<g clip-path="url(#${v.id}-win)">${both(hud)}</g>`;
+  }
+  if(L_.cockpit)body+=cockpit(v,defs);
+  if(L_.panels)body+=panelsLayer(v,s);
+  if(L_.hmd)body+=both(helmet(v,s));
+  if(L_.panels)body+=mapLayer(v,s,o.mapMode);
+  if(o.grid)body+=rings(v);
+  if(o.rulers&&win)body+=rulers(v);
+  svg.innerHTML=`<defs>${defs.join('')}</defs>${body}`;
+}
+
+/* ---------------- scenarios ---------------- */
+const base={mach:0.78,g:1.0,thr:'THR 78%',fuel:'FUEL 61%',cm:'FLR 24 CHF 30',comms:[['Viper 2 splashed FS-20','#dfe8ea'],['OBJ: destroy SAM site','#ffb93a']]};
+const SC=[
+ {key:'cruise',label:'Cruise',title:'Cruise (NAV)',note:'12,400 ft, level, heading 274, the objective 14° left.',head:[0,-7],att:{pitch:3,roll:0},fpm:{az:0.3,el:-3},
+  spd:485,alt:12400,aoa:3.0,hdg:274,steer:260,mode:'NAV',wpn:'IR AAM ×4',arm:'SAFE',agl:3200,
+  markers:[{w:[-14,-1.4],kind:'obj',label:'OBJ  SAM SITE  38 km'},{w:[21,-0.9],kind:'ab',label:'AB  64 km'},{w:[-31,0.4],kind:'fa',label:'VIPER 2  11 km'},{w:[5.5,-0.45],kind:'hg',far:1},{w:[8.5,-0.55],kind:'hg',far:1},{w:[11,-0.25],kind:'ha',far:1},{w:[-6,-0.6],kind:'fg',far:1}],
+  clouds:[[-25,3,14,2.2],[18,5,18,2.6],[40,2,10,1.6],[-50,6,16,2.4]],
+  bullets:['Flight data sits in a 26° × 23° window on the nose. Speed, altitude and heading are all within 13°, so your eyes reach them without a head turn.','The ladder only draws rungs inside that window. They are centred on the flight path marker and match the real horizon 1:1.','Distant contacts are small, dim and unlabelled. The objective, airbase and your wingman are labelled because they matter now. The amber caret on the heading tape steers to the objective.','The minimap, target camera and damage panel sit on the instrument panel about 27° down. Glance down to read them.']},
+ {key:'gun',label:'Guns',title:'Guns, 6.4 G left turn',note:'Lead pursuit on an FS-20 at 1.1 km, 35° of bank.',head:[-2,2],att:{pitch:9,roll:-35},fpm:{az:0.4,el:-10},
+  spd:382,alt:9800,mach:0.61,g:6.4,aoa:10.2,hdg:312,mode:'GUN',wpn:'GUN 412',arm:'ARM',thr:'THR 100% AB',fuel:'FUEL 44%',cm:'FLR 20 CHF 26',agl:2400,
+  markers:[{a:[-2.2,8.0],kind:'ha',sel:1,label:'FS-20  1.1 km'},{w:[-40,6],kind:'fa',label:'VIPER 2  3.2 km'}],air:[{a:[-2.2,8.0]}],
+  gun:{tgt:[-2.2,8.0],pip:[-1.3,5.6],rng:'1.1 km'},cue:'IN RNG',clouds:[[-30,8,20,3],[25,-2,16,2]],
+  bullets:['In a 35° bank the ladder and horizon roll with the world. The data boxes stay square to the aircraft.','The gun pipper and its line to the target live in the HUD window and track the target conformally.','The target box is world-fixed and 2.2° wide at any range. Only the selected bandit and your wingman are labelled.']},
+ {key:'a2a',label:'Missile shot',title:'Air-to-air missile shot',note:'Radar missile selected, bandit at 18.4 km, closing at 820 kt.',head:[0,-4],att:{pitch:5,roll:0},fpm:{az:0.2,el:-4},
+  spd:540,alt:18200,mach:0.94,aoa:4.0,hdg:88,mode:'A/A',wpn:'RDR AAM ×2',arm:'ARM',thr:'THR 96%',fuel:'FUEL 58%',agl:5000,
+  markers:[{a:[4.2,3.2],kind:'ha',sel:1,label:'FS-20  18.4 km'},{a:[9.5,2.0],kind:'ha'},{w:[-22,0.8],kind:'fa',label:'VIPER 2  4.0 km'}],
+  dlz:{rmax:24,rmin:2,ne:[6,12],r:18.4,vc:820},cue:'SHOOT',tgp:{a:'FS-20',b:'18.4 km'},rwr:1,clouds:[[-12,-3,20,2],[30,-4,24,3]],
+  bullets:['The launch zone scale sits low on the right, with maximum range, the no-escape zone and the target caret.','SHOOT appears under the flight path marker, where your eyes already are.','Only the selected bandit is labelled. The second contact stays an icon until you select it. The target camera on the right MFD shows the selected target.']},
+ {key:'a2g',label:'Bombing',title:'Air-to-ground, CCIP dive',note:'25° dive onto an SPAAG group, 5,900 ft above ground.',head:[0,-3],att:{pitch:-20,roll:0},fpm:{az:0,el:-5},
+  spd:462,alt:6200,mach:0.72,g:1.2,aoa:5.0,hdg:45,ralt:'5,900',vv:'−19,500',mode:'A/G',wpn:'Mk 82 ×6',arm:'ARM',thr:'THR 70%',fuel:'FUEL 49%',agl:1800,
+  markers:[{w:[-0.6,-28.0],kind:'hg',sel:1,label:'SPAAG  3.9 km'},{w:[1.3,-27.6],kind:'hg'},{w:[2.2,-28.6],kind:'hg'},{w:[-9,-24],kind:'sam',label:'SAM  6.8 km'}],
+  ground:[[-0.6,-28.0],[1.3,-27.6],[2.2,-28.6],[-9,-24]],ccip:{pip:[0.2,-8.3],rel:'REL 1.6 s'},tgp:{a:'SPAAG',b:'3.9 km LASE'},
+  bullets:['In a 25° dive the ladder shows dashed rungs bent back toward the horizon, so you can read the dive angle at a glance.','The CCIP pipper hangs on the bomb fall line from the flight path marker. Release when it crosses the target.','Radar altitude and descent rate sit under the altitude box, where you check them in the pull-out. The SAM gets a label because it is a threat.']},
+ {key:'def',label:'Missile inbound',title:'Defending, looking over your shoulder',note:'Radar missile at 7 o\'clock, 6.2 km. Head turned 40° left.',head:[-40,4],att:{pitch:2,roll:50},fpm:{az:0.3,el:-8},
+  spd:510,alt:14800,mach:0.83,g:5.1,aoa:8.0,hdg:196,mode:'A/A',wpn:'IR AAM ×2',arm:'ARM',cm:'FLR 6 CHF 4',cmLow:1,thr:'THR 100% AB',fuel:'FUEL 38%',agl:4200,
+  threat:{w:[-138,-3],label:'ARH 6.2 km'},notch:{w:-48,label:'NOTCH'},caution:'CM LOW',rwr:3,
+  markers:[],clouds:[[-60,4,22,3],[-20,-3,18,2]],
+  bullets:['With the HUD 40° away, the helmet layer takes over. It shows speed, heading and altitude under your gaze and a red arrow to the missile.','The notch line is world-fixed at the beam bearing. Put it beside you on the horizon to beam the missile.','MISSILE flashes in both the HUD and the helmet display. Low countermeasures turn amber, with a CM LOW caution.']},
+ {key:'look',label:'Looking left',title:'Off-boresight: looking 68° left',note:'Selecting a KR-67 above the left wing with the head-aimed designator.',head:[-68,9],att:{pitch:4,roll:0},fpm:{az:0.2,el:-4},
+  spd:455,alt:16400,mach:0.76,aoa:4.0,hdg:330,mode:'A/A',wpn:'IR AAM ×4',arm:'ARM',agl:4600,
+  markers:[{w:[-74,10.5],kind:'ha',sel:1,label:'KR-67  6.5 km'},{w:[-52,5],kind:'ha',label:'KR-67  9.1 km'},{w:[-96,1],kind:'fa',label:'VIPER 2  2.2 km'}],
+  air:[{w:[-74,10.5]},{w:[-52,5]},{w:[-96,1]}],clouds:[[-80,4,20,3],[-40,-2,24,3]],
+  bullets:['The designator ring follows your head. That is how Nuclear Option already selects targets by looking at them.','Markers stay pinned to their aircraft even 70° off the nose, and cockpit structure hides them like the canopy frame would.','The helmet data strip sits 9.5° below your gaze. It fades in only once the HUD is more than about 20° away.']},
+ {key:'map',label:'Map open',title:'Full map open',note:'Cockpit-fixed tablet, 50° × 30°, 12° below the nose at about 0.7 m.',head:[0,-13],att:{pitch:3,roll:0},fpm:{az:0.3,el:-3},
+  spd:485,alt:12400,aoa:3.0,hdg:274,steer:260,mode:'NAV',wpn:'IR AAM ×4',arm:'SAFE',agl:3200,mapOpen:true,
+  markers:[{w:[-14,-1.4],kind:'obj',label:'OBJ  SAM SITE  38 km'}],clouds:[[-25,3,14,2.2],[18,5,18,2.6]],
+  bullets:['The map opens as a tablet fixed to the cockpit at arm\'s length, just in front of the instrument panel, so no cockpit geometry cuts through it.','Drag Head yaw: the map stays put and the canopy view opens up beside it. Switch Map anchor to Head-locked to feel the difference.','The aircraft keeps flying, so the map header carries speed, heading and altitude (and any missile warning). The top of the HUD stays visible above the map.']},
+ {key:'land',label:'Landing',title:'Final approach',note:'3° glideslope, 148 kt, gear down, 505 ft above the runway.',head:[0,-5],att:{pitch:6,roll:0},fpm:{az:0,el:-9},
+  spd:148,alt:520,mach:0.23,aoa:9.0,hdg:184,ralt:'505',vv:'−780',gear:'GEAR DN',mode:'LAND',wpn:'',cm:'',thr:'THR 64%',fuel:'FUEL 22%',fuelLow:1,agl:158,ebracket:1,glide:1,
+  runway:{d0:3000,L:2400,w:45,label:'RWY 18'},markers:[],clouds:[[30,6,24,3],[-35,8,20,3]],
+  bullets:['The runway outline and aim point are world-fixed. Fly the flight path marker onto the aim point and hold the dashed −3° glideslope line.','The AoA bracket beside the marker shows on-speed when centred, slow when the marker is low and fast when it is high.','Radar altitude, descent rate and gear state are under the altitude box. Weapons and countermeasures are hidden in landing configuration.']}
+];
+SC.forEach(s=>{for(const k in base)if(!(k in s))s[k]=base[k];});
+
+/* ---------------- viewer wiring ---------------- */
+const st={i:0,yaw:0,pitch:-7,hfov:80,mapMode:'A'};
+const $=id=>document.getElementById(id);
+const svg=$('mock'),yawI=$('yaw'),pitchI=$('pitch');
+function layers(){return{world:$('l-world').checked,hud:$('l-hud').checked,hmd:$('l-hmd').checked,panels:$('l-panels').checked,cockpit:$('l-cockpit').checked};}
+function draw(){
+  const s=SC[st.i];
+  try{render(svg,s,{yaw:st.yaw,pitch:st.pitch,hfov:st.hfov,layers:layers(),mapMode:st.mapMode,grid:$('l-grid').checked,rulers:$('l-rulers').checked});}catch(e){svg.innerHTML=`<text x="40" y="60" fill="#fff" font-size="20">Render error: ${esc(e.message)}</text>`;}
+  $('yawv').textContent=`${st.yaw>0?'+':''}${st.yaw}°`;$('pitchv').textContent=`${st.pitch>0?'+':''}${st.pitch}°`;
+}
+function pick(i){
+  st.i=i;const s=SC[i];st.yaw=s.head[0];st.pitch=s.head[1];yawI.value=st.yaw;pitchI.value=st.pitch;
+  document.querySelectorAll('#scn button').forEach((b,j)=>b.setAttribute('aria-pressed',j===i?'true':'false'));
+  $('scn-title').textContent=s.title;$('scn-note').textContent=s.note;$('scn-bullets').innerHTML=s.bullets.map(b=>`<li>${esc(b)}</li>`).join('');
+  $('mapmodebox').hidden=!s.mapOpen;
+  try{localStorage.setItem('novr-hud-scn',s.key);}catch(e){}
+  draw();
+}
+const seg=$('scn');SC.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.textContent=s.label;b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>pick(i));seg.appendChild(b);});
+yawI.addEventListener('input',()=>{st.yaw=+yawI.value;draw();});
+pitchI.addEventListener('input',()=>{st.pitch=+pitchI.value;draw();});
+['l-world','l-hud','l-hmd','l-panels','l-cockpit','l-grid','l-rulers'].forEach(id=>$(id).addEventListener('change',draw));
+$('reset').addEventListener('click',()=>pick(st.i));
+document.querySelectorAll('#zoom button').forEach(b=>b.addEventListener('click',()=>{st.hfov=+b.dataset.z;document.querySelectorAll('#zoom button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));draw();}));
+document.querySelectorAll('#mapmode button').forEach(b=>b.addEventListener('click',()=>{st.mapMode=b.dataset.m;document.querySelectorAll('#mapmode button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));draw();}));
+let start=0;try{const k=localStorage.getItem('novr-hud-scn');const j=SC.findIndex(s=>s.key===k);if(j>=0)start=j;}catch(e){}
+if(location.hash){const j=SC.findIndex(s=>'#'+s.key===location.hash);if(j>=0)start=j;}
+pick(start);
+
+/* spec sheet: fixed air-to-air, close-up, rulers */
+try{const s2=Object.assign({},SC[2]);render($('specsheet'),s2,{yaw:0,pitch:-0.5,hfov:34,layers:{world:true,hud:true,hmd:false,panels:false,cockpit:true},mapMode:'A',grid:false,rulers:true});}catch(e){}
+
+/* type scale table */
+const toks=[['T1 primary',SPEC.t1,'Speed, altitude, SHOOT and MISSILE cues'],['T2 secondary',SPEC.t2,'Heading readout, Mach, G, AoA, weapons, helmet strip'],['T3 labels',SPEC.t3,'Ladder and tape numbers, marker labels, launch zone'],['Stroke',SPEC.sw,'All lines. Halo adds 0.05° each side'],['Marker icon',SPEC.mk.icon,'0.75° beyond 40 km'],['Target box',SPEC.mk.td,'Square, world-fixed']];
+$('typetbl').querySelector('tbody').innerHTML=toks.map(t=>`<tr><td>${t[0]}</td><td class="num">${t[1].toFixed(2)}°</td><td class="num">${(t[1]*25).toFixed(1)} px</td><td class="num">${(t[1]*20).toFixed(1)} px</td><td class="num">${(t[1]*14).toFixed(1)} px</td><td>${t[2]}</td></tr>`).join('');
+
+/* field map */
+(function(){
+  const fm=$('fieldmap'),x0=60,y0=30,S=7.2,X=a=>x0+(a+60)*S,Y=e=>y0+(42-e)*S;let o='<g class="fm-grid">';
+  for(let a=-60;a<=60;a+=10)o+=`<line x1="${X(a)}" y1="${Y(42)}" x2="${X(a)}" y2="${Y(-50)}"/>`;
+  for(let e=-50;e<=40;e+=10)o+=`<line x1="${X(-60)}" y1="${Y(e)}" x2="${X(60)}" y2="${Y(e)}"/>`;
+  o+='</g>';
+  for(let a=-60;a<=60;a+=20)o+=`<text class="fm-axis" x="${X(a)}" y="${Y(-50)+16}" text-anchor="middle">${a>0?'+':''}${a}°</text>`;
+  for(let e=-40;e<=40;e+=20)o+=`<text class="fm-axis" x="${X(-60)-8}" y="${Y(e)+4}" text-anchor="end">${e>0?'+':''}${e}°</text>`;
+  o+=`<text class="fm-axis" x="${X(0)}" y="${Y(-50)+32}" text-anchor="middle">azimuth from the nose (left − / right +)</text>`;
+  o+=`<rect class="fm-fov" x="${X(-52)}" y="${Y(42)}" width="${104*S}" height="${(42+48)*S}"/><text class="fm-ringlbl" x="${X(-51)}" y="${Y(-46.5)}">approx. headset view (Quest 3 ≈ 104° × 96°)</text>`;
+  for(const r of[15,30])o+=`<circle class="fm-ring" cx="${X(0)}" cy="${Y(0)}" r="${r*S}"/>`;
+  o+=`<text class="fm-ringlbl" x="${X(10.8)+6}" y="${Y(-10.8)+14}">15°</text><text class="fm-ringlbl" x="${X(21.5)+6}" y="${Y(-21.5)+14}">30°</text>`;
+  const R=(a0,a1,e0,e1,cls,lbl,lx,ly,anc,small)=>`<rect class="${cls||''}" x="${X(a0)}" y="${Y(e1)}" width="${(a1-a0)*S}" height="${(e1-e0)*S}"/>`+(lbl?`<text class="${small?'sm':''}" x="${X(lx)}" y="${Y(ly)}" text-anchor="${anc||'start'}">${lbl}</text>`:'');
+  let nw='<g class="fm-new">';
+  nw+=R(-13,13,-12,11,'win','HUD window 26° × 23°',-12.6,12.1,'start');
+  nw+=R(-12,-7.6,0,1.6,'','SPD',-9.8,0.8,'middle',1)+R(6.9,12.3,0,1.6,'','ALT',9.6,0.8,'middle',1)+R(-10,10,7.6,10.4,'','HDG',0,9,'middle',1);
+  nw+=R(-12.4,-8.4,-7.3,-0.6,'','M G α',-10.4,-4,'middle',1)+R(-12.4,12.4,-11.2,-10,'','MODE · CM · WEAPONS',0,-10.6,'middle',1)+R(11.4,12.4,-9,-3.8,'');
+  nw+=R(-26,-10,-35,-20,'','Minimap',-18,-36.8,'middle')+R(10,26,-35,-20,'','Target camera',18,-36.8,'middle')+R(-6.5,6.5,-35,-26,'','Damage',0,-36.8,'middle');
+  nw+=R(-34.5,-17.5,2.75,9.25,'','Comms',-26,10.6,'middle');
+  nw+=R(-25,25,-27,3,'open','Full map when open (≈0.7 m)',24.5,-28.6,'end');
+  nw+=R(-8,8,-10.3,-8.7,'open','',0,0);nw+=`<text x="${X(8.8)}" y="${Y(-15.6)}" text-anchor="start">Helmet strip: head-fixed,</text><text x="${X(8.8)}" y="${Y(-15.6)+14}" text-anchor="start">only when looking off-nose</text>`;
+  nw+='</g>';
+  const pts=[[-12.4,16.7,'Speed',-14,16.7,'end'],[12.4,16.7,'Altitude',14,16.7,'start'],[0,21.8,'Heading',0,24.2,'middle'],[0,16.7,'Horizon ball',1.6,18.4,'start'],[-13.5,27.2,'Countermeasures',-15.2,27.2,'end'],[13.5,25.8,'Power bar',15.2,24.6,'start'],[28.4,27.2,'Weapons',30.2,27.2,'start'],[-38.7,9.1,'Lower-left panel',-40,11.8,'middle'],[32.2,8.3,'Damage display',34,8.3,'start']];
+  let nw2='<g class="fm-now">';
+  nw2+=`<rect class="dash" x="${X(-43.8)}" y="${Y(28.4)}" width="${87.6*S}" height="${56.8*S}"/><text x="${X(-43)}" y="${Y(30)}" text-anchor="start">3 m plane: full map, messages, spawn menus (88° × 57°)</text>`;
+  nw2+=`<line class="dash" x1="${X(0)}" y1="${Y(42)}" x2="${X(0)}" y2="${Y(33.5)}"/><text x="${X(1.4)}" y="${Y(38.5)}" text-anchor="start">ladder ring continues overhead and behind you</text>`;
+  pts.forEach(p=>{nw2+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="5"/><text x="${X(p[3])}" y="${Y(p[4])+4}" text-anchor="${p[5]}">${p[2]}</text>`;});
+  nw2+='</g>';
+  fm.innerHTML=o+nw2+nw;
+  document.querySelectorAll('#fmsel button').forEach(b=>b.addEventListener('click',()=>{fm.classList.remove('show-now','show-new');if(b.dataset.f!=='both')fm.classList.add('show-'+b.dataset.f);document.querySelectorAll('#fmsel button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));}));
+})();
+})();
+</script>
